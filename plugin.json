@@ -1,0 +1,11 @@
+{
+  "name": "Non-Steam Sizes",
+  "author": "deck",
+  "flags": [],
+  "api_version": 1,
+  "publish": {
+    "tags": ["library"],
+    "description": "Includes mods in size on disk, and shows base game + mods on the game page.",
+    "image": ""
+  }
+}

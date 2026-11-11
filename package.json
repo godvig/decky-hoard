@@ -1,0 +1,7 @@
+{
+  "name": "decky-nonsteam-sizes",
+  "version": "0.2.1",
+  "description": "Includes mods in size on disk, and shows base game + mods on the game page.",
+  "type": "module",
+  "license": "MIT"
+}
