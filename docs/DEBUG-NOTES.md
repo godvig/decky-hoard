@@ -51,19 +51,21 @@ and the play bar, which themes such as Clean Gameview paint over or push off
 screen. That is why the stat now lives inside the stats row. Still has to be
 confirmed by eye in Gaming Mode, see `TEST-MATRIX.md`.
 
-## Real risks found while reading
+## Risks found while reading (handled in v0.2.2)
 
 1. `playSectionClasses.GameStatsSection` / `appDetailsClasses.InnerContainer`
    are Steam's minified class names via @decky/ui. If Steam changes them, the
-   label vanishes quietly. Add a one-time `console.warn` when the row isn't found
-   within a few seconds.
-2. `_resolve_mo2` calls `os.listdir(start)` without catching `OSError`. One
-   unreadable instance folder makes the whole scan fail ("scan failed" in the
-   log), not just that game.
-3. A newly installed or uninstalled Steam game doesn't trigger a rescan (only
-   `shortcuts.vdf` mtimes are watched). Watching the `steamapps` folders' mtimes would fix it.
-4. Tools such as Proton and Steam Linux Runtime are sized too. Harmless, but
-   they would show up in a future "Biggest games" list.
+   label vanishes. Now `console.warn` fires once per session when the
+   row isn't on the game page after 5 s.
+2. `_resolve_mo2` called `os.listdir(start)` without catching `OSError`, so one
+   unreadable instance folder failed the whole scan. Now it is caught.
+3. Installing or uninstalling a Steam game didn't trigger a rescan. `_needs_scan` now
+   also watches each library's `steamapps` folder mtime (`scanner.watched_paths`).
+   Steam rewrites manifests while downloading, so expect a rescan every 15 min
+   during a download.
+4. Tools such as Proton and Steam Linux Runtime are sized too. Harmless now: the
+   frontend only touches overviews with `app_type` 1 (games). A future
+   "Biggest games" list must filter on `app_type` the same way.
 
 ## Gaps before store submission
 

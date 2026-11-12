@@ -44,7 +44,7 @@ class Plugin:
         if time.time() - scanned_at > RESCAN_AFTER_SECONDS:
             return True
         # A game was added or removed since the last scan.
-        for path in scanner.shortcut_files(decky.DECKY_USER_HOME):
+        for path in scanner.watched_paths(decky.DECKY_USER_HOME):
             try:
                 if os.path.getmtime(path) > scanned_at:
                     return True

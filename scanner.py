@@ -272,7 +272,11 @@ def _resolve_mo2(start: str, instances: dict[str, str]) -> tuple[str, list[str],
     if game is None:
         return None
     base = [game]
-    for name in os.listdir(start):
+    try:
+        names = os.listdir(start)
+    except OSError:
+        names = []
+    for name in names:
         if name not in MO2_MOD_FOLDERS:
             base.append(os.path.join(start, name))
     if os.path.isdir(start + "-prefix"):
@@ -307,6 +311,12 @@ def _steam_libraries(home: str) -> list[str]:
     except OSError:
         pass
     return list(dict.fromkeys(libraries))
+
+
+def watched_paths(home: str) -> list[str]:
+    """Paths whose mtime changes when a game is added or removed."""
+    # Steam adds and deletes an appmanifest in steamapps for each install.
+    return shortcut_files(home) + [os.path.join(library, "steamapps") for library in _steam_libraries(home)]
 
 
 def scan_steam(home: str, instances: dict[str, str], size_of) -> dict[str, dict]:

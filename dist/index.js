@@ -29,12 +29,14 @@ const REAPPLY_DELAY_MS = 1000;
 const SIZE_STAT_KEY = "nonsteam-sizes";
 // Below this the stats row wraps, and a wrapped stat ends up hidden behind the footer.
 const FULL_TEXT_MIN_WIDTH = 600;
+const MISSING_SECTION_WARN_MS = 5000;
 
 let latest = { sizes: {}, unsized: {}, steam: {}, scanned_at: 0, scanning: false };
 // Appid to the value Steam had before we changed it.
 const patched = new Map();
 const listeners = new Set();
 let reapplyTimer = null;
+let warnedMissingSection = false;
 
 // Steam's size sort and "size on disk" sections read this field straight from
 // each app's overview. It lives in memory only, so nothing is written to Steam.
@@ -109,7 +111,17 @@ function useStatsSection() {
     const observer = new MutationObserver(find);
     observer.observe(page, { childList: true, subtree: true });
     find();
-    return () => observer.disconnect();
+    // Steam renaming its classes would otherwise hide the stat without a trace.
+    const check = setTimeout(() => {
+      if (!warnedMissingSection && !page.querySelector(`.${playSectionClasses.GameStatsSection}`)) {
+        warnedMissingSection = true;
+        console.warn(`[${manifest.name}] stats row not found on the game page, size stat is hidden`);
+      }
+    }, MISSING_SECTION_WARN_MS);
+    return () => {
+      observer.disconnect();
+      clearTimeout(check);
+    };
   }, []);
 
   return [anchor, section];

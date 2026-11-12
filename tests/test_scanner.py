@@ -169,3 +169,27 @@ def test_measure_does_not_follow_symlinks(tmp_path):
     os.symlink(outside, tmp_path / "game/link.bin")
     os.symlink(tmp_path / "outside", tmp_path / "game/linkdir")
     assert scanner.measure(str(tmp_path / "game")) == 1 * MB
+
+
+def test_unreadable_mod_organizer_instance_does_not_fail(tmp_path):
+    missing = str(tmp_path / "gone")
+    kind, base, mods = scanner._resolve_mo2(missing, {missing: "/game"})
+    assert (kind, base) == ("mod-organizer", ["/game"])
+
+
+def test_watched_paths_include_every_steamapps_folder(home, steam, tmp_path):
+    sd = str(tmp_path / "sdcard")
+    with open(os.path.join(steam, "steamapps/libraryfolders.vdf"), "w") as f:
+        f.write(f'"libraryfolders"\n{{\n\t"1"\n\t{{\n\t\t"path"\t\t"{sd}"\n\t}}\n}}\n')
+    write_shortcuts(home)
+    paths = scanner.watched_paths(home)
+    assert os.path.join(steam, "steamapps") in paths
+    assert os.path.join(sd, "steamapps") in paths
+    assert any(p.endswith("shortcuts.vdf") for p in paths)
+
+
+def test_installing_a_steam_game_changes_steamapps_mtime(steam):
+    apps = os.path.join(steam, "steamapps")
+    os.utime(apps, (0, 0))
+    install_steam_game(steam, 70, "New", 1 * MB)
+    assert os.path.getmtime(apps) > 0
