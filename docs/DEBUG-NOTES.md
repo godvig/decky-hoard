@@ -25,7 +25,10 @@ hypotheses written without seeing the code: (A) no size for regular Steam games,
 
 ## How the frontend shows it
 
-- `dist/index.js` is hand-written (no build step, no source elsewhere).
+- Since v0.3.0 the frontend is TypeScript in `src/`, built with rollup (`pnpm build`) on
+  decky-plugin-template: `index.tsx` (panel, wiring), `gamePage.tsx` (route patch and
+  stat), `sortOverride.ts` (overview override, setting `sort_override`, default on),
+  `sizes.ts` (pure formatting and state, unit tested).
 - Sort/filter: it overwrites `overview.size_on_disk` in `appStore` in memory,
   for shortcuts (`app_type` 1073741824) and for Steam games (`app_type` 1) that
   have mods. The original value is restored on unload.
@@ -69,15 +72,11 @@ confirmed by eye in Gaming Mode, see `TEST-MATRIX.md`.
 
 ## Gaps before store submission
 
-- The frontend uses `window.__DECKY_SECRET_INTERNALS_..._deckyLoaderAPIInit`
-  directly instead of `@decky/api`, and has no source or build. The store CI
-  builds from the template (TypeScript + rollup, pnpm 9, lockfile 9.0), so the
-  frontend has to be ported to `src/index.tsx` on the decky-plugin-template.
-- `package.json` says MIT and `plugin.json` says author "deck". Both have to change to the
-  BSD-3-Clause decision and a real author. There is no `LICENSE` file yet.
-- Name: "Non-Steam Sizes" no longer fits (it does Steam games too). Rename
-  when the toolkit name is chosen.
-- `plugin.json` `publish.image` is empty, and the store needs a PNG.
+- Done in v0.3.0: template port with `@decky/api`, pnpm 9 lockfile, BSD-3-Clause
+  LICENSE with the template's notice kept below, author and name "Hoard".
+- `plugin.json` `publish.image` is still empty, and `assets/store.png` is a
+  placeholder. Point it at the PNG's raw URL once the repo exists.
+- The name "Hoard" is not checked against the store, GitHub or trademarks yet.
 
 ## Tests
 
@@ -86,5 +85,6 @@ workshop and loose mods, broken/uninstalled manifests, folder and unknown
 shortcuts, shortcut inside a Steam game, Mod Organizer, and symlinks.
 
 ```bash
+pnpm lint && pnpm typecheck && pnpm test
 python3 -m venv .venv && .venv/bin/pip install pytest && .venv/bin/pytest -q tests
 ```

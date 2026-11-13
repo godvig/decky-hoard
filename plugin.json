@@ -1,11 +1,11 @@
 {
-  "name": "Non-Steam Sizes",
-  "author": "deck",
+  "name": "Hoard",
+  "author": "Adam Englund",
   "flags": [],
   "api_version": 1,
   "publish": {
-    "tags": ["library"],
-    "description": "Includes mods in size on disk, and shows base game + mods on the game page.",
+    "tags": ["library", "storage"],
+    "description": "Shows size on disk, including mods, on the game page for Steam and non-Steam games.",
     "image": ""
   }
 }

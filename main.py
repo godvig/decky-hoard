@@ -10,6 +10,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import scanner
 
 CACHE_NAME = "sizes.json"
+SETTINGS_NAME = "settings.json"
+DEFAULT_SETTINGS = {"sort_override": True}
 RESCAN_AFTER_SECONDS = 24 * 60 * 60
 CHECK_EVERY_SECONDS = 15 * 60
 
@@ -30,11 +32,26 @@ class Plugin:
             return {"sizes": {}, "unsized": {}, "steam": {}, "scanned_at": 0}
 
     def _save_cache(self, result):
-        path = self._cache_path()
+        self._write_json(self._cache_path(), result)
+
+    def _write_json(self, path, data):
         tmp = path + ".tmp"
         with open(tmp, "w") as f:
-            json.dump(result, f)
+            json.dump(data, f)
         os.replace(tmp, path)
+
+    def _settings_path(self):
+        return os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, SETTINGS_NAME)
+
+    def _load_settings(self):
+        settings = dict(DEFAULT_SETTINGS)
+        try:
+            with open(self._settings_path()) as f:
+                saved = json.load(f)
+            settings.update({k: v for k, v in saved.items() if k in DEFAULT_SETTINGS})
+        except (OSError, ValueError, AttributeError):
+            pass
+        return settings
 
     def _needs_scan(self, cache):
         # Written before mods were measured.
@@ -81,6 +98,16 @@ class Plugin:
         cache = self._load_cache()
         cache["scanning"] = self._scanning
         return cache
+
+    async def get_settings(self):
+        return self._load_settings()
+
+    async def set_setting(self, key, value):
+        settings = self._load_settings()
+        if key in DEFAULT_SETTINGS:
+            settings[key] = type(DEFAULT_SETTINGS[key])(value)
+            self._write_json(self._settings_path(), settings)
+        return settings
 
     async def rescan(self):
         asyncio.ensure_future(self._scan())
