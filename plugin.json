@@ -6,6 +6,6 @@
   "publish": {
     "tags": ["library", "storage"],
     "description": "Shows size on disk, including mods, on the game page for Steam and non-Steam games.",
-    "image": ""
+    "image": "https://raw.githubusercontent.com/godvig/decky-hoard/main/assets/store.png"
   }
 }
