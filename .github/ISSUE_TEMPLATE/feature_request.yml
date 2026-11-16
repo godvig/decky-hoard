@@ -1,0 +1,22 @@
+name: Feature request
+description: Something Hoard should measure or show.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you want to do
+      description: The situation, for example a launcher or mod manager Hoard doesn't size yet.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How Hoard could help
+    validations:
+      required: true
+  - type: textarea
+    id: paths
+    attributes:
+      label: Where the files are
+      description: For a new launcher or mod manager, the folders it installs to and keeps its config in.

@@ -1,0 +1,68 @@
+name: Bug report
+description: A wrong size, a missing stat, or something else that doesn't work.
+labels: [bug]
+body:
+  - type: input
+    id: hoard-version
+    attributes:
+      label: Hoard version
+      description: Shown in Decky's settings under Plugins.
+      placeholder: "0.3.0"
+    validations:
+      required: true
+  - type: input
+    id: decky-version
+    attributes:
+      label: Decky Loader version
+      placeholder: "3.3.1"
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: Device and OS
+      placeholder: "Steam Deck OLED, SteamOS 3.8"
+    validations:
+      required: true
+  - type: input
+    id: game
+    attributes:
+      label: Game
+      description: The game's name as it shows in your library.
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: How the game is added to Steam
+      options:
+        - Steam game
+        - Non-Steam game in a folder
+        - Mod Organizer 2
+        - OpenMW
+        - Heroic
+        - Emulator ROM
+        - Flatpak
+        - Other or not sure
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened, and what you expected
+      description: For a wrong size, include the size Hoard shows and the real one if you know it.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Plugin log
+      description: |
+        The output of:
+        `tail -50 ~/homebrew/logs/Hoard/"$(ls -t ~/homebrew/logs/Hoard | head -1)"`
+      render: shell
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot
+      description: Of the game page or the Quick Access panel, if it helps. Steam + R1 takes one.
