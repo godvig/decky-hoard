@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# Builds build/Hoard-<version>.zip for "Install plugin from ZIP" in Decky's developer mode.
+# Builds build/Hoard.zip for "Install Plugin from ZIP File" in Decky's developer mode.
 # Decky names the plugin's folder, and so its settings and log folders, after the zip's
-# top-level folder, which is why that folder is always Hoard/.
+# top-level folder, which is why that folder is always Hoard/. It also looks for the
+# installed plugin to replace by the zip's file name, so the file is always Hoard.zip.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-version=$(node -p 'require("./package.json").version')
 stage=build/zip
-out="build/Hoard-$version.zip"
+out=build/Hoard.zip
 
 pnpm build
 

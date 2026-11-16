@@ -3,6 +3,16 @@
 All notable changes to Hoard. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.3.1] - 2026-11-16
+
+### Fixed
+
+- The release zip is named `Hoard.zip`. Decky finds the installed plugin to replace by the
+  zip's file name, so `Hoard-0.3.0.zip` left an earlier Hoard in another folder installed
+  next to the new one.
+- The README's install steps use Decky's exact labels and a link that always points to the
+  latest release.
+
 ## [0.3.0] - 2026-11-16
 
 The first public release, as a zip on GitHub Releases.
@@ -44,4 +54,5 @@ Not published. The first version, then called Non-Steam Sizes.
 - Those sizes in Steam's sort by size on disk and size filters.
 - Quick Access panel with totals and a rescan button.
 
+[0.3.1]: https://github.com/godvig/decky-hoard/releases/tag/v0.3.1
 [0.3.0]: https://github.com/godvig/decky-hoard/releases/tag/v0.3.0

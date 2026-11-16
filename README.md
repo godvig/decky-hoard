@@ -16,15 +16,19 @@ game page, and Steam's own sort by size on disk.
 Hoard is distributed as a zip on [GitHub Releases](https://github.com/godvig/decky-hoard/releases),
 not through the Decky store. You need Decky Loader 3 with developer mode on.
 
-1. Download `Hoard-<version>.zip` from the latest release.
-2. Open Quick Access → Decky → the gear icon, and turn on **Developer mode** under General.
-3. Open the **Developer** page in Decky's settings and choose **Install Plugin from ZIP File**,
-   then pick the zip. (**Install Plugin from URL** with the release asset's link works too.)
+1. Open Quick Access → Decky → the gear icon, and turn on **Developer mode** under General.
+2. Open the **Developer** page in Decky's settings. Under Third-Party Plugins, either:
+   - enter this link at **Install Plugin from URL** and press **Install**:
+     `https://github.com/godvig/decky-hoard/releases/latest/download/Hoard.zip`
+   - or download `Hoard.zip` from the latest release, then press **Browse** at
+     **Install Plugin from ZIP File** and pick it.
+3. Accept Decky's warning about third-party plugins and confirm the install.
 4. Hoard shows up in the Decky tab of Quick Access and starts its first scan.
 
 **Updates are manual.** The Decky store doesn't know about Hoard, so it won't offer updates.
-Watch the repository's releases on GitHub to hear about new ones, and install the new zip the
-same way. Decky replaces the installed Hoard because the plugin name matches.
+Watch the repository's releases on GitHub to hear about new ones, and install again the same
+way. The link above always points to the latest release. Keep the file name `Hoard.zip`:
+Decky looks for the installed Hoard to replace by the zip's file name.
 
 ## Features
 
@@ -92,7 +96,7 @@ pnpm zip
 ```
 
 `pnpm test` runs the vitest tests in `src/`, and pytest runs `tests/` against fake Steam, Mod
-Organizer and game folders. `pnpm zip` builds the frontend and writes `build/Hoard-<version>.zip`.
+Organizer and game folders. `pnpm zip` builds the frontend and writes `build/Hoard.zip`.
 CI runs all of these on every pull request. Pushing a tag such as `v0.3.0`, matching the
 version in `package.json`, publishes a release with the zip attached.
 
