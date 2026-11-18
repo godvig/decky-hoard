@@ -115,6 +115,8 @@ For a bug, include the game, how it was added to Steam, and the end of the plugi
 tail -50 ~/homebrew/logs/Hoard/"$(ls -t ~/homebrew/logs/Hoard | head -1)"
 ```
 
+If Hoard saved you from a full drive, you can [buy me a coffee](https://ko-fi.com/godvig).
+
 ## About
 
 Hoard was built with AI assistance. The architecture and decisions are the author's.
