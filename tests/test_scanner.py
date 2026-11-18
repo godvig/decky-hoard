@@ -146,6 +146,20 @@ def test_scan_shortcut_inside_steam_game_reuses_its_size(home, steam):
     assert result["steam"]["60"] == {"name": "Modded", "base": 25 * MB, "mods": 0}
 
 
+def test_scan_stops_between_folders_when_asked(home, steam):
+    install_steam_game(steam, 70, "First", 10 * MB)
+    install_steam_game(steam, 71, "Second", 10 * MB)
+    checks = []
+
+    def stop_after_first_folder():
+        checks.append(None)
+        return len(checks) > 1
+
+    with pytest.raises(scanner.ScanStopped):
+        scanner.scan(home, stop_after_first_folder)
+    assert len(checks) == 2
+
+
 def test_scan_mod_organizer_splits_game_and_mods(home):
     game = os.path.join(home, "Games/Fallout")
     write(os.path.join(game, "Fallout.exe"), 10 * MB)

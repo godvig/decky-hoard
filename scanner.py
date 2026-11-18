@@ -27,6 +27,14 @@ MO2_MOD_FOLDERS = ("mods", "overwrite", "downloads")
 LOOSE_MODS_MINIMUM = 10 * 1024 ** 2
 
 
+class ScanStopped(Exception):
+    """Raised by a scan whose should_stop returned true."""
+
+
+def _never() -> bool:
+    return False
+
+
 def parse_shortcuts(data: bytes) -> list[dict]:
     """Parse Steam's binary shortcuts.vdf into a list of shortcut dicts."""
     pos = 0
@@ -221,7 +229,7 @@ def resolve(entry: dict, home: str, heroic: dict[str, str]) -> tuple[str, list[s
     return "unknown", []
 
 
-def measure(path: str) -> int:
+def measure(path: str, should_stop=_never) -> int:
     """Bytes used by a file or folder tree, without following symlinks."""
     try:
         info = os.lstat(path)
@@ -232,6 +240,9 @@ def measure(path: str) -> int:
     total = 0
     stack = [path]
     while stack:
+        # Checked per folder, so a stop waits for one folder listing at most.
+        if should_stop():
+            raise ScanStopped
         try:
             with os.scandir(stack.pop()) as entries:
                 for item in entries:
@@ -355,8 +366,11 @@ def _steam_game(entry: dict, steam_games: dict[str, dict]) -> dict | None:
     return None
 
 
-def scan(home: str) -> dict:
-    """Size every shortcut and Steam game. Results are keyed by appid as a string."""
+def scan(home: str, should_stop=_never) -> dict:
+    """Size every shortcut and Steam game. Results are keyed by appid as a string.
+
+    Raises ScanStopped once should_stop returns true, so the plugin can unload mid-scan.
+    """
     heroic = load_heroic_installs(home)
     instances = mo2_instances(home)
     measured: dict[str, int] = {}
@@ -364,7 +378,7 @@ def scan(home: str) -> dict:
     def size_of(paths: list[str]) -> int:
         for path in paths:
             if path not in measured:
-                measured[path] = measure(path)
+                measured[path] = measure(path, should_stop)
         return sum(measured[path] for path in paths)
 
     steam_games = scan_steam(home, instances, size_of)

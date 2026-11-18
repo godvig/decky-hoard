@@ -3,6 +3,13 @@
 All notable changes to Hoard. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- Disabling, updating or uninstalling Hoard during a scan no longer takes 5 seconds and
+  ends with Decky killing the backend. The scan now stops between folders.
+
 ## [0.3.1] - 2026-11-16
 
 ### Fixed

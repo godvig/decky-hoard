@@ -2,6 +2,7 @@ import asyncio
 import json
 import os
 import sys
+import threading
 import time
 
 import decky
@@ -20,6 +21,10 @@ class Plugin:
     _task = None
     _scan_lock = None
     _scanning = False
+
+    def __init__(self):
+        # Read by the scan thread, which task cancellation can't reach.
+        self._stopping = threading.Event()
 
     def _cache_path(self):
         return os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, CACHE_NAME)
@@ -75,13 +80,16 @@ class Plugin:
         self._scanning = True
         try:
             started = time.time()
-            result = await asyncio.to_thread(scanner.scan, decky.DECKY_USER_HOME)
+            result = await asyncio.to_thread(scanner.scan, decky.DECKY_USER_HOME, self._stopping.is_set)
             result["scanned_at"] = started
             await asyncio.to_thread(self._save_cache, result)
             decky.logger.info(
                 "sized %d shortcuts, %d unsized, in %.1fs",
                 len(result["sizes"]), len(result["unsized"]), time.time() - started,
             )
+        except scanner.ScanStopped:
+            decky.logger.info("scan stopped after %.1fs, plugin is unloading", time.time() - started)
+            return
         except Exception:
             decky.logger.exception("scan failed")
         finally:
@@ -119,5 +127,7 @@ class Plugin:
         self._task = asyncio.ensure_future(self._watch())
 
     async def _unload(self):
+        # Otherwise the scan thread keeps the process alive until Decky kills it.
+        self._stopping.set()
         if self._task:
             self._task.cancel()
