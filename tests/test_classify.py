@@ -144,3 +144,24 @@ def test_not_played_counts_only_games_on_disk_and_never_guesses():
     # No time at all, as for a shortcut from another Steam account: unknown, not old.
     assert [g["name"] for g in found["unknown"]] == ["Other account"]
     assert classify.apply_kinds(cache, {"10": 1}, {}, times, now, 8)["not_played"]["bytes"] == 0
+
+
+def test_mods_overview_lists_games_with_mods_and_where_they_are():
+    workshop = {"where": "workshop", "path": "/library/steamapps/workshop/content/10", "bytes": 100}
+    mo2 = {"where": "mod-organizer", "path": "/home/user/Games/ModOrganizer2/game/mods", "bytes": 300}
+    cache = {
+        "sizes": {
+            "3000000001": {"name": "Modded MO2", "bytes": 400, "base": 100, "mods": 300, "source": "mod-organizer",
+                           "kind": "game", "mod_parts": [mo2]},
+            "3000000002": {"name": "Plain ROM", "bytes": 50, "base": 50, "mods": 0, "source": "rom", "kind": "game"},
+            "3000000003": {"name": "Modded app", "bytes": 90, "base": 10, "mods": 80, "source": "flatpak",
+                           "kind": "app", "mod_parts": []},
+        },
+        "unsized": {},
+        "steam": {"10": {"name": "Workshop game", "base": 300, "mods": 100, "mod_parts": [workshop]}},
+    }
+    found = classify.apply_kinds(cache, {"10": 1}, {})["mods"]
+    assert [(g["name"], g["mods"], g["share"]) for g in found["games"]] == [
+        ("Modded MO2", 300, 0.75), ("Workshop game", 100, 0.25)]
+    assert found["games"][0]["mod_parts"] == [mo2]
+    assert found["bytes"] == 400

@@ -14,6 +14,7 @@ export interface Settings {
   check_updates: boolean;
   biggest_games: boolean;
   not_played: boolean;
+  mods_overview: boolean;
   // How long a game must go unplayed to show under "Not played", 1 to 36.
   stale_months: number;
 }
@@ -29,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   check_updates: false,
   biggest_games: true,
   not_played: true,
+  mods_overview: true,
   stale_months: 6,
 };
 

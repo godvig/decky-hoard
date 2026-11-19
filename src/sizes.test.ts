@@ -40,6 +40,11 @@ describe("sizeText", () => {
     expect(sizeText(s, steamGame, false)).toBe("2.0 GB game (no mods)");
   });
 
+  it("says mods are unknown when no rule covers the game", () => {
+    const s = state({ sizes: { 3000000001: { name: "A", bytes: GB, base: GB, mods: 0, mods_known: false, source: "rom", paths: [] } } });
+    expect(sizeText(s, shortcut, false)).toBe("1.0 GB game (mods —)");
+  });
+
   it("falls back to Steam's size for a Steam game not scanned yet", () => {
     expect(sizeText(EMPTY_STATE, steamGame, false)).toBe("20.0 GB");
   });

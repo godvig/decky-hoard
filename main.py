@@ -24,6 +24,7 @@ DEFAULT_SETTINGS = {"enabled": True, "sort_override": True, "size_label": True, 
                     "check_updates": False,
                     "biggest_games": True,
                     "not_played": True,
+                    "mods_overview": True,
                     # How long a game must go unplayed to show under "Not played".
                     "stale_months": 6,
                     # The user's "Not a game" and "Count as game", as {appid: kind}.

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 import { patchGamePage } from "./gamePage";
 import { Settings, settingsStore, shownState, sortOverrideOn, Switch } from "./settings";
-import { Entry, formatBytes, NotPlayed, RankedGame, SizesState, store, totalBytes } from "./sizes";
+import { Entry, formatBytes, ModsOverview, NotPlayed, RankedGame, SizesState, store, totalBytes } from "./sizes";
 import { applySizes, appTypes, clearSizes, lastPlayed, setSortOverrideEnabled } from "./sortOverride";
 import { KOFI_URL, strings } from "./strings";
 
@@ -251,6 +251,64 @@ function NotPlayedGames({ found, months }: { found: NotPlayed; months: number })
   );
 }
 
+// A game with mods: press A to see where they are, as Hoard found them.
+function ModdedGame({ game }: { game: ModsOverview["games"][number] }) {
+  const [open, setOpen] = useState(false);
+  const places = [...new Set((game.mod_parts ?? []).map((part) => strings.where[part.where] ?? part.where))].join(", ");
+  return (
+    <>
+      <PanelSectionRow>
+        <Field
+          label={game.name}
+          description={`${strings.modsShare(Math.round(game.share * 100), formatBytes(game.bytes))} · ${places}`}
+          focusable
+          highlightOnFocus
+          onActivate={() => setOpen(!open)}
+        >
+          {formatBytes(game.mods)}
+        </Field>
+      </PanelSectionRow>
+      {open &&
+        (game.mod_parts ?? []).map((part) => (
+          <PanelSectionRow key={part.shown}>
+            <Field
+              indentLevel={1}
+              label={strings.where[part.where] ?? part.where}
+              description={part.where === "loose" ? `${part.shown} · ${strings.looseNote}` : part.shown}
+            >
+              {formatBytes(part.bytes)}
+            </Field>
+          </PanelSectionRow>
+        ))}
+    </>
+  );
+}
+
+function ModsSection({ overview }: { overview: ModsOverview }) {
+  const [showAll, setShowAll] = useState(false);
+  const shown = showAll ? overview.games : overview.games.slice(0, 10);
+  return (
+    <PanelSection title={strings.modsTitle}>
+      <PanelSectionRow>
+        <Field
+          label={overview.games.length ? strings.modsSummary(overview.games.length, formatBytes(overview.bytes)) : strings.modsNone}
+          description={strings.modsHowTo}
+        />
+      </PanelSectionRow>
+      {shown.map((game) => (
+        <ModdedGame key={game.appid} game={game} />
+      ))}
+      {!showAll && overview.games.length > shown.length && (
+        <PanelSectionRow>
+          <ButtonItem layout="below" onClick={() => setShowAll(true)}>
+            {strings.showAll(overview.games.length - shown.length)}
+          </ButtonItem>
+        </PanelSectionRow>
+      )}
+    </PanelSection>
+  );
+}
+
 function EntryToggle({ entry }: { entry: Entry }) {
   const description = [strings.kinds[entry.kind], entry.guessed ? strings.guessed : null, entry.overridden ? strings.setByYou : null]
     .filter(Boolean)
@@ -371,6 +429,7 @@ function Content() {
       {settings.enabled && settings.not_played && shown.not_played && (
         <NotPlayedGames found={shown.not_played} months={settings.stale_months} />
       )}
+      {settings.enabled && settings.mods_overview && shown.mods && <ModsSection overview={shown.mods} />}
       <PanelSection>
         <PanelSectionRow>
           <ButtonItem layout="inline" label={strings.features} onClick={() => setFeaturesOpen(!featuresOpen)}>
@@ -384,6 +443,7 @@ function Content() {
             <FeatureToggle setting="scan_shortcuts" label={strings.scanShortcuts} description={strings.scanShortcutsDescription} />
             <FeatureToggle setting="biggest_games" label={strings.biggestGames} description={strings.biggestGamesDescription} />
             <FeatureToggle setting="not_played" label={strings.notPlayed} description={strings.notPlayedDescription} />
+            <FeatureToggle setting="mods_overview" label={strings.modsOverview} description={strings.modsOverviewDescription} />
             <FeatureToggle setting="check_updates" label={strings.checkUpdates} description={strings.checkUpdatesDescription} />
           </>
         )}

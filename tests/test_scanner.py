@@ -101,6 +101,8 @@ def test_workshop_content_counts_as_mods(home, steam):
     write(os.path.join(steam, "steamapps/workshop/content/30/111/mod.pak"), 5 * MB)
     (game,) = scan_steam(home).values()
     assert (game["base"], game["mods"]) == (40 * MB, 5 * MB)
+    assert game["mod_parts"] == [{"where": "workshop", "path": os.path.join(steam, "steamapps/workshop/content/30"),
+                                  "shown": "~/.local/share/Steam/steamapps/workshop/content/30", "bytes": 5 * MB}]
 
 
 def test_loose_files_count_as_mods_only_above_minimum(home, steam):
@@ -110,7 +112,9 @@ def test_loose_files_count_as_mods_only_above_minimum(home, steam):
     write(os.path.join(small, "logs/log.txt"), 1 * MB)
     games = {g["appid"]: g for g in scan_steam(home).values()}
     assert games["40"]["mods"] == 20 * MB
-    assert games["41"]["mods"] == 0
+    assert games["40"]["mod_parts"] == [{"where": "loose", "path": big, "shown": "~/.local/share/Steam/steamapps/common/Big",
+                                         "bytes": 20 * MB}]
+    assert (games["41"]["mods"], games["41"]["mod_parts"]) == (0, [])
 
 
 def test_broken_and_uninstalled_manifests_are_skipped(home, steam):
@@ -133,6 +137,8 @@ def test_scan_sizes_folder_shortcut_and_marks_unknown_unsized(home):
     assert result["sizes"]["3000000001"]["source"] == "folder"
     assert result["sizes"]["3000000001"]["paths"] == [game]  # Widened to the top folder under ~/Games.
     assert result["sizes"]["3000000001"]["base"] == 3 * MB
+    # A folder game has no rule for where its mods are: unknown, not zero.
+    assert result["sizes"]["3000000001"]["mods_known"] is False
     # /usr/bin/true is a path, not a bare command, so nothing says what it is: a flagged guess.
     assert result["unsized"]["3000000002"] == {"name": "Mystery", "source": "unknown", "kind": "game", "guessed": True}
     assert result["total_bytes"] == 3 * MB
@@ -176,6 +182,9 @@ def test_scan_mod_organizer_splits_game_and_mods(home):
     info = scanner.scan(home)["sizes"]["3000000004"]
     assert info["source"] == "mod-organizer"
     assert info["mods"] == 9 * MB
+    assert info["mods_known"] is True
+    assert {part["where"] for part in info["mod_parts"]} == {"mod-organizer"}
+    assert sum(part["bytes"] for part in info["mod_parts"]) == 9 * MB
     assert info["base"] == 11 * MB + os.path.getsize(os.path.join(instance, "ModOrganizer.ini"))
 
 
@@ -265,3 +274,10 @@ def test_steam_game_with_mods_is_always_walked(home, steam):
     walked = []
     scanner.scan_steam(home, {}, counting_size_of(walked), previous, 1001.0)
     assert folder in walked
+
+
+def test_shown_path_hides_the_home_folder():
+    assert scanner._shown_path("/home/user/Games/x", "/home/user") == "~/Games/x"
+    assert scanner._shown_path("/home/username/x", "/home/user") == "/home/username/x"
+    assert scanner._shown_path("/run/media/sd/x", "/home/user") == "/run/media/sd/x"
+

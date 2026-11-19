@@ -33,7 +33,7 @@ def plugin(tmp_path, monkeypatch, emitted):
 
 
 DEFAULTS = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True,
-            "check_updates": False, "biggest_games": True, "not_played": True, "stale_months": 6,
+            "check_updates": False, "biggest_games": True, "not_played": True, "mods_overview": True, "stale_months": 6,
             "kind_overrides": {}}
 
 

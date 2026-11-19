@@ -1,0 +1,37 @@
+name: Mod location
+description: Mods Hoard doesn't find, for a game or a mod manager.
+labels: [mods]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Hoard counts mods only where a rule says to look, and shows "—" where it has none.
+        A new rule needs to know exactly where the mods are. Please don't paste paths with
+        your user name in them: write `~` for your home folder.
+  - type: input
+    id: game
+    attributes:
+      label: Game
+      description: As Steam shows it, and whether it is a Steam game or a non-Steam shortcut.
+    validations:
+      required: true
+  - type: input
+    id: manager
+    attributes:
+      label: Mod manager
+      description: Such as Vortex, r2modman, Thunderstore, BepInEx, or "by hand".
+    validations:
+      required: true
+  - type: textarea
+    id: paths
+    attributes:
+      label: Where the mods are
+      description: The folders that hold the mods, and any folder or file that marks them as mods (a config file, a mods list).
+      placeholder: ~/.config/r2modmanPlus-local/Valheim/profiles/Default/BepInEx/plugins
+    validations:
+      required: true
+  - type: textarea
+    id: shown
+    attributes:
+      label: What Hoard shows now
+      description: The "Size on disk" line on the game page, for example "12.0 GB game (mods —)".

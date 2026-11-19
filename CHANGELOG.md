@@ -25,11 +25,16 @@ and versions follow [Semantic Versioning](https://semver.org/).
   choose, largest first, with the space they take together. It uses Steam's own last-played
   time, and games without one are listed apart rather than guessed.
 - **Biggest games** and **Not played** each have a switch under Features.
+- **Mods** in the panel: games with mods, most first, with the mods' share of the game and each
+  folder they are in. Files Steam didn't install are listed apart, since they can be the game's own.
+- A mod location issue template, and a README table of every place Hoard looks for mods.
 - Automatic scans skip Steam games without mods that haven't changed since they were last
   measured, for up to a week. **Rescan now** still measures everything.
 
 ### Changed
 
+- The game page shows `(mods —)` instead of `(no mods)` for games no mod rule covers, such as
+  ROMs and folder games: Hoard doesn't know, which is not the same as none.
 - The cache is rescanned once after updating, because its entries now carry a kind. The way a
   shortcut was found is now called its `source`.
 - **Use in library sort** is now **Include mods in sorting**. The saved setting is kept.

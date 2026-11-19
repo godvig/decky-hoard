@@ -38,9 +38,11 @@ Decky looks for the installed Hoard to replace by the zip's file name.
   game folder it points into, a Mod Organizer 2 instance, OpenMW, Heroic, a ROM or file path in
   the launch options, the start folder, a Flatpak, the executable. A folder under `~/Games` is
   widened to its top folder, and folders shared by several shortcuts are counted once in totals.
-- **Mods for Steam games.** Steam Workshop content, the `mods`, `overwrite` and `downloads`
-  folders of a Mod Organizer instance for that game, and loose files in the game folder beyond
-  what Steam installed (only when they add up to 10 MiB or more).
+- **Mods.** Found only where a rule says to look, listed under
+  [Where Hoard looks for mods](#where-hoard-looks-for-mods). For a game no rule covers, such as a
+  ROM or a folder game, the game page says `(mods —)`: unknown, not none.
+- **Mods overview.** The games with mods in the panel, most mods first, each with the mods' size,
+  their share of the game, and where they are. Press A on a game for each folder and its size.
 - **Library sort and filters.** Steam's sort by size on disk and its size filters include
   non-Steam games and mods. This changes Steam's numbers in memory only, never in Steam's files,
   and puts them back when Hoard unloads. Turn it off with **Include mods in sorting**.
@@ -59,8 +61,8 @@ Decky looks for the installed Hoard to replace by the zip's file name.
   only guessed is one, each with a switch to count it or not. **Show more** lists the rest.
 - **Quick Access panel.** How many non-Steam games are sized, the shortcuts' total, the last scan time, and
   **Rescan now**. Under **Features**, each feature has its own switch: the size on the game
-  page, **Include mods in sorting**, **Non-Steam scanning**, **Biggest games**, **Not played**
-  and **Check for updates**. With non-Steam scanning off,
+  page, **Include mods in sorting**, **Non-Steam scanning**, **Biggest games**, **Not played**,
+  **Mods** and **Check for updates**. With non-Steam scanning off,
   shortcuts are neither measured nor shown; their last sizes are kept and refreshed when it's
   turned back on.
 - **Enable Hoard.** The switch at the top of the panel. Off, Hoard changes nothing in Steam:
@@ -81,10 +83,26 @@ Decky looks for the installed Hoard to replace by the zip's file name.
   files. See [Network access](#network-access) for the one request Hoard can make.
 
 Known limits: loose files in a Steam game folder can include files the game made itself, such
-as logs or shader caches, and they count as mods. A Steam game installed after the last scan
+as logs or shader caches, and they count as mods; the mods overview lists them apart. A Steam game installed after the last scan
 shows Steam's own size until the next scan. A mod copied deep into a Steam game that had none,
 without touching the game folder itself, can go unnoticed for up to a week; **Rescan now**
 picks it up at once.
+
+## Where Hoard looks for mods
+
+| Game or manager | Where | Shown as |
+|---|---|---|
+| Any Steam game | `steamapps/workshop/content/<appid>` in the game's library | Steam Workshop |
+| Any Steam game | Files in the game folder beyond the manifest's `SizeOnDisk`, when they add up to 10 MiB or more | Other files in the game folder |
+| Mod Organizer 2 (a Steam game or a shortcut) | The instance's `mods`, `overwrite` and `downloads` folders | Mod Organizer |
+| OpenMW | Every `data=` folder in `~/.config/openmw/openmw.cfg` other than the one with `Morrowind.esm`, and a `-cache` folder next to each | OpenMW |
+
+"Other files in the game folder" is the one rule that can be wrong: it also catches files the
+game made itself, such as logs and shader caches, and the overview says so. Paths are shown with
+`~` for your home folder.
+
+Mods somewhere else? Open a [mod location request](https://github.com/godvig/decky-hoard/issues/new?template=mod_location.yml)
+with the game, the mod manager and the folders. Hoard adds a rule only for a place it can name exactly.
 
 ## What counts as a game
 
@@ -176,7 +194,6 @@ version in `package.json`, publishes a release with the zip attached.
 Hoard is about storage: how big each game really is, what takes the space, and what can go.
 
 - Finish the Gaming Mode checks in `docs/TEST-MATRIX.md` on more themes and storage setups.
-- An overview of the mods Hoard found for each game.
 - Opt-in Steam collections from Hoard's data, such as games over 50 GB.
 - Clean-up of leftover shader caches for games that are no longer installed.
 - Submission to the Decky store.

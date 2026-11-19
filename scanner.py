@@ -16,7 +16,7 @@ import time
 import classify
 
 # Bumped when the cache's shape changes, so the plugin rescans instead of reading old entries.
-CACHE_FORMAT = 2
+CACHE_FORMAT = 3
 # How long an automatic scan may reuse a Steam game's last measurement.
 REUSE_FOR_SECONDS = 7 * 24 * 60 * 60
 ROM_PLAYLISTS = (".cue", ".m3u")
@@ -356,6 +356,18 @@ def _reusable(previous: dict | None, stamp: list[float], now: float) -> bool:
             and now - previous.get("measured_at", 0) < REUSE_FOR_SECONDS)
 
 
+def _shown_path(path: str, home: str) -> str:
+    """The path as the panel shows it, with ~ for the home folder so no user name appears."""
+    return "~" + path[len(home):] if path == home or path.startswith(home + "/") else path
+
+
+def _mod_parts(where: str, paths: list[str], size_of, home: str) -> list[dict]:
+    """Each mod folder that holds anything, with where it comes from."""
+    parts = [{"where": where, "path": path, "shown": _shown_path(path, home), "bytes": size_of([path])}
+             for path in paths]
+    return [part for part in parts if part["bytes"] > 0]
+
+
 def scan_steam(home: str, instances: dict[str, str], size_of, previous: dict[str, dict] | None = None,
                now: float = 0.0) -> dict[str, dict]:
     """Base and mod sizes of installed Steam apps, keyed by install folder.
@@ -381,18 +393,19 @@ def scan_steam(home: str, instances: dict[str, str], size_of, previous: dict[str
             stamp = [_mtime(manifest), _mtime(folder), _mtime(workshop)]
             last = previous.get(appid)
             if folder not in modded and _reusable(last, stamp, now):
-                games[folder] = {"appid": appid, "name": name, "base": base, "mods": 0, "stamp": stamp,
-                                 "measured_at": last["measured_at"]}
+                games[folder] = {"appid": appid, "name": name, "base": base, "mods": 0, "mod_parts": [],
+                                 "stamp": stamp, "measured_at": last["measured_at"]}
                 continue
-            mods = size_of([workshop])
+            parts = _mod_parts("workshop", [workshop], size_of, home)
             if folder in modded:
-                mods += size_of(_mo2_mod_paths(modded[folder]))
-            # Anything in the game folder that Steam didn't install came from a mod.
+                parts += _mod_parts("mod-organizer", _mo2_mod_paths(modded[folder]), size_of, home)
+            # Anything in the game folder that Steam didn't install came from a mod, or from the
+            # game itself, such as logs and caches. The overview says so.
             loose = size_of([folder]) - base
             if loose >= LOOSE_MODS_MINIMUM:
-                mods += loose
-            games[folder] = {"appid": appid, "name": name, "base": base, "mods": mods, "stamp": stamp,
-                             "measured_at": now}
+                parts.append({"where": "loose", "path": folder, "shown": _shown_path(folder, home), "bytes": loose})
+            games[folder] = {"appid": appid, "name": name, "base": base, "mods": sum(p["bytes"] for p in parts),
+                             "mod_parts": parts, "stamp": stamp, "measured_at": now}
     return games
 
 
@@ -435,21 +448,27 @@ def scan(home: str, should_stop=_never, include_shortcuts: bool = True, previous
         game = _steam_game(entry, steam_games)
         if game:
             sizes[str(appid)] = {"name": name, "bytes": game["base"] + game["mods"], "base": game["base"],
-                                 "mods": game["mods"], "source": "steam-game", "kind": "game", "guessed": False,
-                                 "paths": []}
+                                 "mods": game["mods"], "mods_known": True, "mod_parts": game["mod_parts"],
+                                 "source": "steam-game", "kind": "game", "guessed": False, "paths": []}
             continue
         start = (entry.get("startdir") or "").strip('"').rstrip("/")
         special = _resolve_mo2(start, instances) or _resolve_openmw(start, home)
         source, base_paths, mod_paths = special or (*resolve(entry, home, heroic), [])
         kind, guessed = classify.shortcut_kind(program, options, source)
-        base, mods = size_of(base_paths), size_of(mod_paths)
+        base = size_of(base_paths)
+        # Only Mod Organizer and OpenMW have a rule for where mods are. For anything else
+        # Hoard doesn't know, which is not the same as no mods.
+        parts = _mod_parts(source, mod_paths, size_of, home)
+        mods = sum(part["bytes"] for part in parts)
         if base + mods > 0:
             sizes[str(appid)] = {"name": name, "bytes": base + mods, "base": base, "mods": mods,
-                                 "source": source, "kind": kind, "guessed": guessed, "paths": base_paths + mod_paths}
+                                 "mods_known": special is not None, "mod_parts": parts, "source": source,
+                                 "kind": kind, "guessed": guessed, "paths": base_paths + mod_paths}
             counted.update(base_paths + mod_paths)
         else:
             unsized[str(appid)] = {"name": name, "source": source, "kind": kind, "guessed": guessed}
-    steam = {game["appid"]: {"name": game["name"], "base": game["base"], "mods": game["mods"], "stamp": game["stamp"],
+    steam = {game["appid"]: {"name": game["name"], "base": game["base"], "mods": game["mods"], "mods_known": True,
+                             "mod_parts": game["mod_parts"], "stamp": game["stamp"],
                              "measured_at": game["measured_at"]}
              for game in steam_games.values()}
     # Shortcuts can share a folder, so the total counts each folder only once.

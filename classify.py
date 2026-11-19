@@ -115,6 +115,7 @@ def apply_kinds(cache: dict, app_types: dict[str, int], overrides: dict[str, str
     games = [item for group in ("sizes", "unsized") for item in result[group].values() if is_game(item)]
     result["biggest"] = biggest_games(result)
     result["not_played"] = not_played(result, last_played or {}, now, months)
+    result["mods"] = mods_overview(result)
     result["entries"] = entry_list(result)
     result["counts"] = {
         "shortcut_games": len(games),
@@ -128,11 +129,11 @@ def apply_kinds(cache: dict, app_types: dict[str, int], overrides: dict[str, str
 def _installed_games(result: dict) -> list[dict]:
     """Every game on disk once, with its size, mods included."""
     games = [{"appid": appid, "name": item["name"], "bytes": item["base"] + item["mods"], "mods": item["mods"],
-              "source": "steam"}
+              "source": "steam", "mod_parts": item.get("mod_parts", [])}
              for appid, item in result.get("steam", {}).items() if is_game(item)]
     # A shortcut into a Steam game's folder is that same game, already listed above.
     games += [{"appid": appid, "name": item["name"], "bytes": item["bytes"], "mods": item.get("mods", 0),
-               "source": item.get("source", "")}
+               "source": item.get("source", ""), "mod_parts": item.get("mod_parts", [])}
               for appid, item in result.get("sizes", {}).items()
               if is_game(item) and item.get("source") != "steam-game"]
     return games
@@ -170,3 +171,11 @@ def entry_list(result: dict) -> list[dict]:
                 "overridden": item["overridden"], "review": not is_game(item) or item["guessed"]}
                for group in ("sizes", "unsized", "steam") for appid, item in result.get(group, {}).items()]
     return sorted(entries, key=lambda e: (not e["review"], e["name"].lower()))
+
+
+def mods_overview(result: dict) -> dict:
+    """Games with mods Hoard found, most mods first, with where they are and their share of the game."""
+    games = [{**game, "share": game["mods"] / game["bytes"]}
+             for game in _installed_games(result) if game["mods"] > 0 and game["bytes"] > 0]
+    games.sort(key=lambda game: game["mods"], reverse=True)
+    return {"games": games, "bytes": sum(game["mods"] for game in games)}

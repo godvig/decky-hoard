@@ -98,3 +98,13 @@ Update check:
 - [ ] Features → Not played off: the section goes away. Features → Biggest games off: that one too.
 - [ ] D-pad: the slider moves with left/right without leaving the row, and **Support on Ko-fi**
       is still the last item you can focus.
+
+## Mods overview
+
+- [ ] **Mods** lists games with mods, most mods first, each with a share such as "23% of 15.0 GB"
+      and where the mods are. No game without mods is in it.
+- [ ] Press A on a modded game: one row per folder appears below it, with `~` instead of your home
+      folder. Press A again: they fold away. A Steam game with loose files says they may be the game's own.
+- [ ] The game page of a ROM or a folder game says `(mods —)`; a Steam game without mods says `(no mods)`.
+- [ ] Features → Mods off: the section goes away.
+- [ ] D-pad: you can scroll past an open game's folder rows, and **Support on Ko-fi** is still last.

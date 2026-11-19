@@ -45,6 +45,21 @@ export const strings = {
   notPlayed: "Not played",
   notPlayedDescription: "Lists installed games you haven't played for a while, using Steam's own last-played time.",
 
+  modsTitle: "Mods",
+  modsSummary: (count: number, size: string) => `${count} ${count === 1 ? "game" : "games"} with ${size} of mods`,
+  modsNone: "No mods found",
+  modsShare: (percent: number, total: string) => `${percent}% of ${total}`,
+  modsHowTo: "Hoard finds mods only where it knows to look. The README lists where, and how to ask for more.",
+  where: {
+    workshop: "Steam Workshop",
+    "mod-organizer": "Mod Organizer",
+    openmw: "OpenMW",
+    loose: "Other files in the game folder",
+  } as Record<string, string>,
+  looseNote: "May include files the game made itself, such as logs and caches.",
+  modsOverview: "Mods",
+  modsOverviewDescription: "Lists games with mods, how much space the mods take, and where they are.",
+
   gameOrNot: "Game or not",
   gameOrNotDescription: "Only games are counted and ranked. Disk totals take everything.",
   kinds: { game: "Game", app: "App", emulator: "Emulator", tool: "Tool" },
@@ -85,4 +100,5 @@ export const strings = {
   game: "game",
   mods: "mods",
   noMods: "(no mods)",
+  modsUnknown: "(mods —)",
 };

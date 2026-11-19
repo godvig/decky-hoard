@@ -9,10 +9,21 @@ export const THIRD_PARTY_APP_TYPE = 1073741824;
 // Decided by the backend (classify.py). Counts and rankings take only games.
 export type Kind = "game" | "app" | "emulator" | "tool";
 
+export interface ModPart {
+  // workshop, mod-organizer, openmw, or loose: files beyond what Steam installed.
+  where: string;
+  // With ~ for the home folder.
+  shown: string;
+  bytes: number;
+}
+
 export interface MeasuredSize {
   name: string;
   base: number;
   mods: number;
+  // False when no rule says where this game's mods would be: unknown, not none.
+  mods_known?: boolean;
+  mod_parts?: ModPart[];
   kind?: Kind;
 }
 
@@ -29,6 +40,12 @@ export interface RankedGame {
   bytes: number;
   mods: number;
   source: string;
+  mod_parts?: ModPart[];
+}
+
+export interface ModsOverview {
+  games: (RankedGame & { share: number })[];
+  bytes: number;
 }
 
 export interface Entry {
@@ -68,6 +85,7 @@ export interface SizesState {
   biggest?: RankedGame[];
   entries?: Entry[];
   not_played?: NotPlayed;
+  mods?: ModsOverview;
   // Set once the plugin unloads, so an open game page drops the stat.
   removed?: boolean;
 }
@@ -91,7 +109,9 @@ export function formatBytes(bytes: number): string {
 export function sizeText(state: SizesState, overview: OverviewLike, compact: boolean): string | null {
   const info = state.sizes[overview.appid] ?? state.steam?.[overview.appid];
   if (info?.base !== undefined) {
-    const mods = info.mods > 0 ? `+ ${formatBytes(info.mods)} ${strings.mods}` : strings.noMods;
+    let mods = strings.noMods;
+    if (info.mods > 0) mods = `+ ${formatBytes(info.mods)} ${strings.mods}`;
+    else if (info.mods_known === false) mods = strings.modsUnknown;
     return `${formatBytes(info.base)}${compact ? "" : ` ${strings.game}`} ${mods}`;
   }
   // A Steam game installed since the last scan: its mods aren't measured yet.
