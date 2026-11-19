@@ -41,6 +41,17 @@ Quick Access panel (since Enable Hoard and Features):
       switches when shown, then **Support on Ko-fi** last. Focus never lands on the version.
 - [ ] **Support on Ko-fi** closes Quick Access and opens the Ko-fi page in Steam's browser. B goes back.
 
+Update check:
+
+- [ ] Fresh install: **Check for updates** is off and no Updates section shows.
+- [ ] Turn it on: the Updates section appears and a check runs at once. On the latest release it
+      says `Up to date (vX.Y.Z)` with the time of the check.
+- [ ] With an older Hoard installed: `Update available: vX.Y.Z` and the install steps show.
+      **Open release page** closes Quick Access and opens that release on GitHub. B goes back.
+- [ ] Offline (Wi-Fi off), press **Check now**: no error, the label and last check stay as they were.
+- [ ] Turn **Enable Hoard** off: the Updates section goes away, and no check runs.
+- [ ] D-pad: **Support on Ko-fi** is still the last item you can focus.
+
 ## If something fails, paste back
 
 1. The row from the table and the game's name.

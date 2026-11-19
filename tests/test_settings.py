@@ -31,22 +31,23 @@ def plugin(tmp_path, monkeypatch, emitted):
     return main.Plugin()
 
 
-ALL_ON = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True}
+DEFAULTS = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True,
+            "check_updates": False}
 
 
-def test_everything_defaults_to_on(plugin):
-    assert asyncio.run(plugin.get_settings()) == ALL_ON
+def test_everything_but_the_update_check_defaults_to_on(plugin):
+    assert asyncio.run(plugin.get_settings()) == DEFAULTS
 
 
 def test_set_setting_is_saved(plugin, tmp_path):
-    assert asyncio.run(plugin.set_setting("sort_override", False)) == {**ALL_ON, "sort_override": False}
+    assert asyncio.run(plugin.set_setting("sort_override", False)) == {**DEFAULTS, "sort_override": False}
     assert json.loads((tmp_path / "settings.json").read_text())["sort_override"] is False
     assert asyncio.run(plugin.get_settings())["sort_override"] is False
 
 
 def test_settings_saved_by_an_earlier_version_still_apply(plugin, tmp_path):
     (tmp_path / "settings.json").write_text('{"sort_override": false}')
-    assert asyncio.run(plugin.get_settings()) == {**ALL_ON, "sort_override": False}
+    assert asyncio.run(plugin.get_settings()) == {**DEFAULTS, "sort_override": False}
 
 
 def test_turned_off_hoard_neither_scans_nor_rescans(plugin, tmp_path):
@@ -114,6 +115,66 @@ def test_scan_after_unload_stops_without_saving(plugin, tmp_path, emitted):
 
 
 def test_unknown_keys_and_broken_files_are_ignored(plugin, tmp_path):
-    assert asyncio.run(plugin.set_setting("nope", True)) == ALL_ON
+    assert asyncio.run(plugin.set_setting("nope", True)) == DEFAULTS
     (tmp_path / "settings.json").write_text("[1, 2")
-    assert asyncio.run(plugin.get_settings()) == ALL_ON
+    assert asyncio.run(plugin.get_settings()) == DEFAULTS
+
+
+@pytest.fixture
+def github(plugin, monkeypatch):
+    """Stands in for GitHub: append the version the next request returns, or None for offline."""
+    answers = []
+    requests = []
+
+    def fetch_latest():
+        requests.append(True)
+        return answers.pop(0) if answers else None
+
+    monkeypatch.setattr(sys.modules["updates"], "fetch_latest", fetch_latest)
+    return types.SimpleNamespace(answers=answers, requests=requests)
+
+
+def test_update_check_never_asks_until_turned_on(plugin, github):
+    assert not plugin._update_check_due()
+    info = asyncio.run(plugin.check_updates_now())
+    assert github.requests == []
+    assert info["available"] is False
+
+
+def test_update_check_finds_a_newer_release(plugin, github):
+    asyncio.run(plugin.set_setting("check_updates", True))
+    github.answers.append("1.3.0")
+    info = asyncio.run(plugin.check_updates_now())
+    assert (info["current"], info["latest"], info["available"]) == ("1.2.3", "1.3.0", True)
+    assert info["url"] == "https://github.com/godvig/decky-hoard/releases/tag/v1.3.0"
+
+
+def test_update_check_on_the_latest_release(plugin, github):
+    asyncio.run(plugin.set_setting("check_updates", True))
+    github.answers.append("1.2.3")
+    info = asyncio.run(plugin.check_updates_now())
+    assert (info["available"], info["url"]) == (False, None)
+
+
+def test_update_check_asks_at_most_once_a_day_even_offline(plugin, github, emitted):
+    async def turn_on():
+        await plugin.set_setting("check_updates", True)
+        await asyncio.sleep(0)
+        await asyncio.sleep(0)
+
+    asyncio.run(turn_on())
+    assert github.requests == [True]
+    assert not plugin._update_check_due()
+    info = asyncio.run(plugin.get_update())
+    assert (info["latest"], info["checked_at"], info["available"]) == (None, 0, False)
+    assert "updates_changed" in emitted
+
+
+def test_turned_off_hoard_checks_no_updates(plugin, github):
+    asyncio.run(plugin.set_setting("check_updates", True))
+    asyncio.run(plugin.set_setting("enabled", False))
+    plugin._write_json(plugin._updates_path(), {"attempted_at": 0})
+    github.requests.clear()
+    assert not plugin._update_check_due()
+    asyncio.run(plugin.check_updates_now())
+    assert github.requests == []

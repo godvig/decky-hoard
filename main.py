@@ -9,11 +9,15 @@ import decky
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import scanner
+import updates
 
 CACHE_NAME = "sizes.json"
 SETTINGS_NAME = "settings.json"
+UPDATES_NAME = "updates.json"
 # enabled is the master switch. sort_override keeps its first name so saved settings still apply.
-DEFAULT_SETTINGS = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True}
+DEFAULT_SETTINGS = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True,
+                    # Hoard's only network access, so it waits for the user to ask for it.
+                    "check_updates": False}
 # Shortcut results a scan without shortcuts carries over from the last cache.
 SHORTCUT_FIELDS = ("sizes", "unsized", "total_bytes")
 RESCAN_AFTER_SECONDS = 24 * 60 * 60
@@ -24,6 +28,7 @@ class Plugin:
     _task = None
     _scan_lock = None
     _scanning = False
+    _checking = False
 
     def __init__(self):
         # Read by the scan thread, which task cancellation can't reach.
@@ -60,6 +65,50 @@ class Plugin:
         except (OSError, ValueError, AttributeError):
             pass
         return settings
+
+    def _updates_path(self):
+        return os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, UPDATES_NAME)
+
+    def _load_updates(self):
+        try:
+            with open(self._updates_path()) as f:
+                state = json.load(f)
+            if isinstance(state, dict):
+                return state
+        except (OSError, ValueError):
+            pass
+        return {"attempted_at": 0, "checked_at": 0, "latest": None}
+
+    def _update_info(self, state):
+        current = decky.DECKY_PLUGIN_VERSION
+        latest = state.get("latest")
+        available = updates.is_newer(latest, current)
+        return {"current": current, "latest": latest, "checked_at": state.get("checked_at", 0),
+                "checking": self._checking, "available": available,
+                "url": updates.release_page(latest) if available else None}
+
+    def _update_check_due(self):
+        settings = self._load_settings()
+        return (settings["enabled"] and settings["check_updates"]
+                and updates.is_due(self._load_updates().get("attempted_at", 0), time.time()))
+
+    async def _check_updates(self):
+        if self._checking:
+            return
+        self._checking = True
+        try:
+            latest = await asyncio.to_thread(updates.fetch_latest)
+            state = self._load_updates()
+            # Counted even when it fails, so an offline Deck asks at most once a day too.
+            state["attempted_at"] = time.time()
+            if latest:
+                state.update(latest=latest, checked_at=state["attempted_at"])
+            else:
+                decky.logger.info("update check got no answer, trying again in a day")
+            self._write_json(self._updates_path(), state)
+        finally:
+            self._checking = False
+        await decky.emit("updates_changed")
 
     def _needs_scan(self, cache):
         # Written before mods were measured.
@@ -118,6 +167,8 @@ class Plugin:
         while True:
             if self._should_scan():
                 await self._scan()
+            if self._update_check_due():
+                await self._check_updates()
             await asyncio.sleep(CHECK_EVERY_SECONDS)
 
     async def get_sizes(self):
@@ -137,10 +188,21 @@ class Plugin:
             # Catch up now rather than at the watcher's next check, up to 15 minutes later.
             if settings[key] and not was_on and self._should_scan():
                 asyncio.ensure_future(self._scan())
+            if settings[key] and not was_on and self._update_check_due():
+                asyncio.ensure_future(self._check_updates())
         return settings
 
     async def get_version(self):
         return decky.DECKY_PLUGIN_VERSION
+
+    async def get_update(self):
+        return self._update_info(self._load_updates())
+
+    async def check_updates_now(self):
+        settings = self._load_settings()
+        if settings["enabled"] and settings["check_updates"]:
+            await self._check_updates()
+        return self._update_info(self._load_updates())
 
     async def rescan(self):
         if not self._load_settings()["enabled"]:

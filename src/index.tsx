@@ -8,11 +8,23 @@ import { formatBytes, SizesState, store, totalBytes } from "./sizes";
 import { applySizes, clearSizes, setSortOverrideEnabled } from "./sortOverride";
 import { KOFI_URL, strings } from "./strings";
 
+interface UpdateInfo {
+  current: string;
+  latest: string | null;
+  checked_at: number;
+  checking: boolean;
+  available: boolean;
+  // Built by the backend from the checked version, never taken from GitHub's reply.
+  url: string | null;
+}
+
 const getSizes = callable<[], SizesState>("get_sizes");
 const rescan = callable<[], boolean>("rescan");
 const getSettings = callable<[], Settings>("get_settings");
 const setSetting = callable<[key: keyof Settings, value: boolean], Settings>("set_setting");
 const getVersion = callable<[], string>("get_version");
+const getUpdate = callable<[], UpdateInfo>("get_update");
+const checkUpdatesNow = callable<[], UpdateInfo>("check_updates_now");
 
 const REAPPLY_DELAY_MS = 1000;
 
@@ -67,6 +79,71 @@ function FeatureToggle({ setting, label, description }: { setting: keyof Setting
         onChange={(value) => changeSetting(setting, value)}
       />
     </PanelSectionRow>
+  );
+}
+
+// Never says "up to date" without an answer from GitHub to back it.
+function updateLabel(info: UpdateInfo): string {
+  if (!info.latest) return strings.latestUnknown;
+  return info.available ? strings.updateAvailable(info.latest) : strings.upToDate(info.current);
+}
+
+// Shown only with "Check for updates" on. It only tells: installing stays the user's job.
+function UpdateSection() {
+  const [info, setInfo] = useState<UpdateInfo | null>(null);
+  const [checking, setChecking] = useState(false);
+
+  useEffect(() => {
+    const load = () => getUpdate().then(setInfo);
+    const listener = addEventListener("updates_changed", load);
+    load();
+    return () => {
+      removeEventListener("updates_changed", listener);
+    };
+  }, []);
+
+  if (!info) return null;
+  const busy = checking || info.checking;
+  const checked = info.checked_at ? new Date(info.checked_at * 1000).toLocaleString() : strings.notChecked;
+
+  return (
+    <PanelSection title={strings.updatesTitle}>
+      <PanelSectionRow>
+        <Field
+          label={updateLabel(info)}
+          description={info.available ? strings.updateHowTo : undefined}
+        />
+      </PanelSectionRow>
+      <PanelSectionRow>
+        <Field label={strings.lastChecked}>{checked}</Field>
+      </PanelSectionRow>
+      {info.available && info.url && (
+        <PanelSectionRow>
+          <ButtonItem
+            layout="below"
+            onClick={() => {
+              Navigation.CloseSideMenus();
+              Navigation.NavigateToExternalWeb(info.url as string);
+            }}
+          >
+            {strings.openRelease}
+          </ButtonItem>
+        </PanelSectionRow>
+      )}
+      <PanelSectionRow>
+        <ButtonItem
+          layout="below"
+          disabled={busy}
+          onClick={async () => {
+            setChecking(true);
+            setInfo(await checkUpdatesNow());
+            setChecking(false);
+          }}
+        >
+          {busy ? strings.checking : strings.checkNow}
+        </ButtonItem>
+      </PanelSectionRow>
+    </PanelSection>
   );
 }
 
@@ -152,9 +229,11 @@ function Content() {
             <FeatureToggle setting="size_label" label={strings.sizeLabel} description={strings.sizeLabelDescription} />
             <FeatureToggle setting="sort_override" label={strings.includeMods} description={strings.includeModsDescription} />
             <FeatureToggle setting="scan_shortcuts" label={strings.scanShortcuts} description={strings.scanShortcutsDescription} />
+            <FeatureToggle setting="check_updates" label={strings.checkUpdates} description={strings.checkUpdatesDescription} />
           </>
         )}
       </PanelSection>
+      {settings.enabled && settings.check_updates && <UpdateSection />}
       {/* Keep this section last: the Ko-fi button is meant to be the panel's last stop. */}
       <PanelSection>
         <PanelSectionRow>

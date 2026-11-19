@@ -10,9 +10,17 @@ export interface Settings {
   sort_override: boolean;
   size_label: boolean;
   scan_shortcuts: boolean;
+  // Hoard's only network access, off until the user turns it on.
+  check_updates: boolean;
 }
 
-export const DEFAULT_SETTINGS: Settings = { enabled: true, sort_override: true, size_label: true, scan_shortcuts: true };
+export const DEFAULT_SETTINGS: Settings = {
+  enabled: true,
+  sort_override: true,
+  size_label: true,
+  scan_shortcuts: true,
+  check_updates: false,
+};
 
 export function sortOverrideOn(settings: Settings): boolean {
   return settings.enabled && settings.sort_override;

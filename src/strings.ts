@@ -1,6 +1,7 @@
 // Every string Hoard shows, in one place.
 
 export const KOFI_URL = "https://ko-fi.com/godvig?ref=hoard-panel";
+export const INSTALL_URL = "https://github.com/godvig/decky-hoard/releases/latest/download/Hoard.zip";
 
 export const strings = {
   enable: "Enable Hoard",
@@ -26,6 +27,20 @@ export const strings = {
     "Sorting and filters by size on disk use the total size, game + mods, including non-Steam games.",
   scanShortcuts: "Non-Steam scanning",
   scanShortcutsDescription: "Measures the folders of non-Steam shortcuts.",
+  checkUpdates: "Check for updates",
+  checkUpdatesDescription:
+    "Once a day, asks GitHub for the latest Hoard version. Nothing about you or your library is sent.",
+
+  updatesTitle: "Updates",
+  upToDate: (version: string) => `Up to date (v${version})`,
+  updateAvailable: (version: string) => `Update available: v${version}`,
+  updateHowTo: `In Decky's settings, open Developer and use Install Plugin from URL with ${INSTALL_URL}`,
+  latestUnknown: "Latest version not known yet",
+  notChecked: "Not checked yet",
+  lastChecked: "Last checked",
+  checkNow: "Check now",
+  checking: "Checking...",
+  openRelease: "Open release page",
 
   support: "If Hoard saved you from a full drive, you can buy me a coffee",
   supportButton: "Support on Ko-fi",

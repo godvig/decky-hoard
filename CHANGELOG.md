@@ -12,6 +12,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - A **Features** section with a switch for each feature: the size on the game page,
   **Include mods in sorting** and **Non-Steam scanning**.
 - A Ko-fi link and Hoard's version at the bottom of the panel.
+- **Check for updates**, off by default. Once a day, and on **Check now**, Hoard asks GitHub for
+  the latest release and shows whether an update is available, how to install it, and a button
+  to its release page. It is Hoard's only network access; the README lists the exact request.
 
 ### Changed
 

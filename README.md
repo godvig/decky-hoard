@@ -26,8 +26,8 @@ not through the Decky store. You need Decky Loader 3 with developer mode on.
 4. Hoard shows up in the Decky tab of Quick Access and starts its first scan.
 
 **Updates are manual.** The Decky store doesn't know about Hoard, so it won't offer updates.
-Watch the repository's releases on GitHub to hear about new ones, and install again the same
-way. The link above always points to the latest release. Keep the file name `Hoard.zip`:
+Turn on **Check for updates** in Hoard's Features to hear about new releases, or watch the
+repository's releases on GitHub, and install again the same way. The link above always points to the latest release. Keep the file name `Hoard.zip`:
 Decky looks for the installed Hoard to replace by the zip's file name.
 
 ## Features
@@ -56,7 +56,12 @@ Decky looks for the installed Hoard to replace by the zip's file name.
 - **Quiet background scans.** Every 15 minutes Hoard checks whether to rescan: after 24 hours,
   or when a shortcut or a Steam library changed. Scans run at the lowest CPU priority so they
   stay out of a running game's way.
-- **No network access.** The backend uses only Python's standard library and reads local files.
+- **Update check, off by default.** Turn on **Check for updates** under Features, and Hoard asks
+  GitHub once a day, and when you press **Check now**, whether a newer release exists. If so, the
+  panel shows `Update available: vX.Y.Z`, how to install it, and a button that opens the release
+  page. Hoard never downloads or installs anything itself.
+- **No other network access.** The backend uses only Python's standard library and reads local
+  files. See [Network access](#network-access) for the one request Hoard can make.
 
 Known limits: loose files in a Steam game folder can include files the game made itself, such
 as logs or shader caches, and they count as mods. A Steam game installed after the last scan
@@ -66,6 +71,7 @@ shows Steam's own size until the next scan.
 
 | Part | Files | Job |
 |---|---|---|
+| Update check | `updates.py` | Asks GitHub for the latest release's version and compares it with the installed one. Pure functions except the one request. |
 | Scanner | `scanner.py` | Reads `shortcuts.vdf`, Steam's library folders and app manifests, Mod Organizer, OpenMW and Heroic config, and measures folders. Pure functions, no Decky imports. |
 | Backend | `main.py` | Decky plugin class. Runs the scan watcher in a thread, caches results, stores settings, emits `sizes_updated`. |
 | Frontend | `src/` | `index.tsx` wires up the plugin and the Quick Access panel, `gamePage.tsx` patches the game page route, `sortOverride.ts` changes Steam's size fields, `sizes.ts` holds formatting and state, `settings.ts` decides which features are on, `strings.ts` holds every UI string. |
@@ -80,6 +86,24 @@ image over that gap, so anything placed there would hide the Play button.
 
 `docs/DEBUG-NOTES.md` has the longer write-up, and `docs/TEST-MATRIX.md` the manual checks run
 in Gaming Mode.
+
+## Network access
+
+With **Check for updates** off, which is the default, Hoard makes no network requests at all.
+With it on, the backend (`updates.py`) makes this one request, at most once a day and when
+you press **Check now**, and not while **Enable Hoard** is off:
+
+```
+GET https://api.github.com/repos/godvig/decky-hoard/releases/latest
+Accept: application/vnd.github+json
+User-Agent: Hoard
+```
+
+It sends no cookies, tokens, Steam IDs, Hoard version or anything about your library. From the
+reply it reads only `tag_name`. The link behind **Open release page** is built from that version,
+not taken from the reply. When offline, the check fails quietly and tries again a day later.
+The time of the last attempt and the version found are kept in `updates.json` next to Hoard's
+settings.
 
 ## Compatibility
 
@@ -112,7 +136,6 @@ version in `package.json`, publishes a release with the zip attached.
 Hoard is about storage: how big each game really is, what takes the space, and what can go.
 
 - Finish the Gaming Mode checks in `docs/TEST-MATRIX.md` on more themes and storage setups.
-- An opt-in check for new releases, since the Decky store doesn't offer Hoard's updates.
 - Counts that leave out emulators, apps and tools, and a list of the biggest games, mods
   included, in the Quick Access panel.
 - Installed games not played for a chosen number of months, with the space they take.
