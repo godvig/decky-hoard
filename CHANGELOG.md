@@ -31,6 +31,11 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - Automatic scans skip Steam games without mods that haven't changed since they were last
   measured, for up to a week. **Rescan now** still measures everything.
 
+### Fixed
+
+- A Mod Organizer shortcut for a Steam game, such as Skyrim, was listed next to the Steam game
+  itself, so the game showed up twice in Biggest games, Not played and Mods.
+
 ### Changed
 
 - The game page shows `(mods —)` instead of `(no mods)` for games no mod rule covers, such as

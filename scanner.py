@@ -464,6 +464,10 @@ def scan(home: str, should_stop=_never, include_shortcuts: bool = True, previous
             sizes[str(appid)] = {"name": name, "bytes": base + mods, "base": base, "mods": mods,
                                  "mods_known": special is not None, "mod_parts": parts, "source": source,
                                  "kind": kind, "guessed": guessed, "paths": base_paths + mod_paths}
+            # A Mod Organizer instance for a Steam game is that game, which Steam lists already.
+            steam_game = steam_games.get(base_paths[0]) if source == "mod-organizer" else None
+            if steam_game:
+                sizes[str(appid)]["steam_appid"] = steam_game["appid"]
             counted.update(base_paths + mod_paths)
         else:
             unsized[str(appid)] = {"name": name, "source": source, "kind": kind, "guessed": guessed}

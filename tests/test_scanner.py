@@ -7,6 +7,7 @@ import sys
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import classify
 import scanner
 
 MB = 1024 ** 2
@@ -281,3 +282,18 @@ def test_shown_path_hides_the_home_folder():
     assert scanner._shown_path("/home/username/x", "/home/user") == "/home/username/x"
     assert scanner._shown_path("/run/media/sd/x", "/home/user") == "/run/media/sd/x"
 
+
+def test_mod_organizer_shortcut_for_a_steam_game_is_listed_once(home, steam):
+    game = install_steam_game(steam, 93, "Skyrim", 10 * MB)
+    instance = os.path.join(home, "Games/ModOrganizer2/skyrim")
+    write(os.path.join(instance, "ModOrganizer.exe"), 1 * MB)
+    write(os.path.join(instance, "mods/Mod/mod.esp"), 3 * MB)
+    with open(os.path.join(instance, "ModOrganizer.ini"), "w") as f:
+        f.write(f"[General]\ngamePath=@ByteArray(Z:{game})\n")
+    write_shortcuts(home, {"appid": 3000000005, "AppName": "MO2 Skyrim", "Exe": f'"{instance}/ModOrganizer.exe"',
+                           "StartDir": f'"{instance}"'})
+    result = scanner.scan(home)
+    assert result["sizes"]["3000000005"]["steam_appid"] == "93"
+    ranked = classify.apply_kinds(result, {"93": 1}, {})
+    assert [game["name"] for game in ranked["biggest"]] == ["Skyrim"]
+    assert [game["name"] for game in ranked["mods"]["games"]] == ["Skyrim"]

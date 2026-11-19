@@ -131,11 +131,12 @@ def _installed_games(result: dict) -> list[dict]:
     games = [{"appid": appid, "name": item["name"], "bytes": item["base"] + item["mods"], "mods": item["mods"],
               "source": "steam", "mod_parts": item.get("mod_parts", [])}
              for appid, item in result.get("steam", {}).items() if is_game(item)]
-    # A shortcut into a Steam game's folder is that same game, already listed above.
+    # A shortcut into a Steam game's folder, or a Mod Organizer instance for one, is that same
+    # game, already listed above.
     games += [{"appid": appid, "name": item["name"], "bytes": item["bytes"], "mods": item.get("mods", 0),
                "source": item.get("source", ""), "mod_parts": item.get("mod_parts", [])}
               for appid, item in result.get("sizes", {}).items()
-              if is_game(item) and item.get("source") != "steam-game"]
+              if is_game(item) and item.get("source") != "steam-game" and "steam_appid" not in item]
     return games
 
 
