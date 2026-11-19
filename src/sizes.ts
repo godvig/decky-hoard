@@ -1,6 +1,8 @@
 // Scan results from the backend, and how they are shown. No Steam or Decky
 // globals in here, so it can be unit tested on its own.
 
+import { strings } from "./strings";
+
 export const STEAM_GAME_APP_TYPE = 1;
 export const THIRD_PARTY_APP_TYPE = 1073741824;
 
@@ -45,8 +47,8 @@ export function formatBytes(bytes: number): string {
 export function sizeText(state: SizesState, overview: OverviewLike, compact: boolean): string | null {
   const info = state.sizes[overview.appid] ?? state.steam?.[overview.appid];
   if (info?.base !== undefined) {
-    const mods = info.mods > 0 ? `+ ${formatBytes(info.mods)} mods` : "(no mods)";
-    return `${formatBytes(info.base)}${compact ? "" : " game"} ${mods}`;
+    const mods = info.mods > 0 ? `+ ${formatBytes(info.mods)} ${strings.mods}` : strings.noMods;
+    return `${formatBytes(info.base)}${compact ? "" : ` ${strings.game}`} ${mods}`;
   }
   // A Steam game installed since the last scan: its mods aren't measured yet.
   const bytes = Number(overview.size_on_disk);
@@ -58,18 +60,16 @@ export function totalBytes(state: SizesState): number {
   return state.total_bytes ?? Object.values(state.sizes).reduce((sum, item) => sum + item.bytes, 0);
 }
 
-type Listener = (state: SizesState) => void;
-
-export function createStore(initial: SizesState) {
+export function createStore<T>(initial: T) {
   let state = initial;
-  const listeners = new Set<Listener>();
+  const listeners = new Set<(state: T) => void>();
   return {
     get: () => state,
-    set(next: SizesState) {
+    set(next: T) {
       state = next;
       listeners.forEach((listener) => listener(state));
     },
-    subscribe(listener: Listener) {
+    subscribe(listener: (state: T) => void) {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);

@@ -3,7 +3,9 @@ import { afterPatch, appDetailsClasses, createReactTreePatcher, findInReactTree,
 import { ReactElement, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { settingsStore, shownState, sizeLabelOn } from "./settings";
 import { OverviewLike, sizeText, store } from "./sizes";
+import { strings } from "./strings";
 
 const GAME_PAGE_ROUTE = "/library/app/:appid";
 const SIZE_STAT_KEY = "hoard-size";
@@ -54,17 +56,19 @@ function useStatsSection() {
 // footer, and paint the hero image over anything placed between them.
 function SizeStat({ overview }: { overview: OverviewLike }) {
   const [state, setState] = useState(store.get);
+  const [settings, setSettings] = useState(settingsStore.get);
   const [anchor, section] = useStatsSection();
 
   useEffect(() => store.subscribe(setState), []);
+  useEffect(() => settingsStore.subscribe(setSettings), []);
 
   const compact = section !== null && section.clientWidth < FULL_TEXT_MIN_WIDTH;
-  const text = state.removed ? null : sizeText(state, overview, compact);
+  const text = state.removed || !sizeLabelOn(settings) ? null : sizeText(shownState(state, settings), overview, compact);
   const stat = (
     // Steam can add its own stats after ours, so keep this one last in the row.
     <div className={`${playSectionClasses.GameStat} ${playSectionClasses.LastPlayed}`} style={{ order: 1 }}>
       <div className={playSectionClasses.GameStatRight}>
-        <div className={playSectionClasses.PlayBarLabel}>Size on disk</div>
+        <div className={playSectionClasses.PlayBarLabel}>{strings.sizeOnDisk}</div>
         <div className={playSectionClasses.PlayBarDetailLabel}>{text}</div>
       </div>
     </div>

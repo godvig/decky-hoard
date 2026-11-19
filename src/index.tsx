@@ -1,90 +1,181 @@
 import { addEventListener, callable, definePlugin, removeEventListener } from "@decky/api";
-import { ButtonItem, Field, PanelSection, PanelSectionRow, staticClasses, ToggleField } from "@decky/ui";
+import { ButtonItem, Field, Navigation, PanelSection, PanelSectionRow, staticClasses, ToggleField } from "@decky/ui";
 import { useEffect, useState } from "react";
 
 import { patchGamePage } from "./gamePage";
+import { Settings, settingsStore, shownState, sortOverrideOn } from "./settings";
 import { formatBytes, SizesState, store, totalBytes } from "./sizes";
 import { applySizes, clearSizes, setSortOverrideEnabled } from "./sortOverride";
-
-interface Settings {
-  sort_override: boolean;
-}
+import { KOFI_URL, strings } from "./strings";
 
 const getSizes = callable<[], SizesState>("get_sizes");
 const rescan = callable<[], boolean>("rescan");
 const getSettings = callable<[], Settings>("get_settings");
 const setSetting = callable<[key: keyof Settings, value: boolean], Settings>("set_setting");
+const getVersion = callable<[], string>("get_version");
 
 const REAPPLY_DELAY_MS = 1000;
 
 let reapplyTimer: ReturnType<typeof setTimeout> | undefined;
-let settings: Settings = { sort_override: true };
+let unpatchGamePage: (() => void) | undefined;
+
+function apply() {
+  applySizes(shownState(store.get(), settingsStore.get()));
+}
 
 function scheduleApply() {
   clearTimeout(reapplyTimer);
-  reapplyTimer = setTimeout(() => applySizes(store.get()), REAPPLY_DELAY_MS);
+  reapplyTimer = setTimeout(apply, REAPPLY_DELAY_MS);
 }
 
 async function refresh() {
-  const next = await getSizes();
-  applySizes(next);
-  store.set(next);
+  store.set(await getSizes());
+  apply();
+}
+
+// Brings every feature in line with the settings. With Hoard off, Steam is left as stock:
+// its own sizes, and no patch on the game page.
+function applySettings(next: Settings) {
+  settingsStore.set(next);
+  setSortOverrideEnabled(sortOverrideOn(next), shownState(store.get(), next));
+  if (next.enabled && !unpatchGamePage) unpatchGamePage = patchGamePage();
+  if (!next.enabled && unpatchGamePage) {
+    unpatchGamePage();
+    unpatchGamePage = undefined;
+  }
+}
+
+async function changeSetting(key: keyof Settings, value: boolean) {
+  applySettings({ ...settingsStore.get(), [key]: value });
+  applySettings(await setSetting(key, value));
+  // Turning something on can start a scan.
+  refresh();
+}
+
+function FeatureToggle({ setting, label, description }: { setting: keyof Settings; label: string; description: string }) {
+  const [settings, setSettings] = useState(settingsStore.get);
+
+  useEffect(() => settingsStore.subscribe(setSettings), []);
+
+  return (
+    <PanelSectionRow>
+      <ToggleField
+        label={label}
+        description={description}
+        checked={settings[setting]}
+        disabled={!settings.enabled}
+        onChange={(value) => changeSetting(setting, value)}
+      />
+    </PanelSectionRow>
+  );
 }
 
 function Content() {
   const [state, setState] = useState(store.get);
-  const [sortOverride, setSortOverride] = useState(settings.sort_override);
+  const [settings, setSettings] = useState(settingsStore.get);
   const [starting, setStarting] = useState(false);
+  const [featuresOpen, setFeaturesOpen] = useState(false);
+  const [version, setVersion] = useState("");
 
   useEffect(() => {
-    const unsubscribe = store.subscribe(setState);
+    const unsubscribeSizes = store.subscribe(setState);
+    const unsubscribeSettings = settingsStore.subscribe(setSettings);
     refresh();
-    return unsubscribe;
+    getVersion().then(setVersion);
+    return () => {
+      unsubscribeSizes();
+      unsubscribeSettings();
+    };
   }, []);
 
-  const sized = Object.values(state.sizes).length;
-  const unsized = Object.values(state.unsized).length;
+  const shown = shownState(state, settings);
+  const sized = Object.values(shown.sizes).length;
+  const unsized = Object.values(shown.unsized).length;
   const busy = state.scanning || starting;
-  const scanned = state.scanned_at ? new Date(state.scanned_at * 1000).toLocaleString() : "Not yet";
+  const scanned = state.scanned_at ? new Date(state.scanned_at * 1000).toLocaleString() : strings.notYet;
 
   return (
-    <PanelSection title="Non-Steam games">
-      <PanelSectionRow>
-        <Field label="Sized">{`${sized} of ${sized + unsized}`}</Field>
-      </PanelSectionRow>
-      <PanelSectionRow>
-        <Field label="Total">{formatBytes(totalBytes(state))}</Field>
-      </PanelSectionRow>
-      <PanelSectionRow>
-        <Field label="Last scan">{scanned}</Field>
-      </PanelSectionRow>
-      <PanelSectionRow>
-        <ToggleField
-          label="Use in library sort"
-          description="Size on disk sorting and filters include non-Steam games and mods."
-          checked={sortOverride}
-          onChange={async (value) => {
-            setSortOverride(value);
-            settings = await setSetting("sort_override", value);
-            setSortOverrideEnabled(settings.sort_override, store.get());
-          }}
-        />
-      </PanelSectionRow>
-      <PanelSectionRow>
-        <ButtonItem
-          layout="below"
-          disabled={busy}
-          onClick={async () => {
-            setStarting(true);
-            await rescan();
-            setStarting(false);
-            refresh();
-          }}
-        >
-          {busy ? "Scanning..." : "Rescan now"}
-        </ButtonItem>
-      </PanelSectionRow>
-    </PanelSection>
+    <>
+      <PanelSection>
+        <PanelSectionRow>
+          <ToggleField
+            label={strings.enable}
+            description={settings.enabled ? strings.enableDescription : strings.offNotice}
+            checked={settings.enabled}
+            onChange={(value) => changeSetting("enabled", value)}
+          />
+        </PanelSectionRow>
+      </PanelSection>
+      {settings.enabled && (
+        <PanelSection title={strings.shortcutsTitle}>
+          {settings.scan_shortcuts ? (
+            <>
+              <PanelSectionRow>
+                <Field label={strings.sized}>{`${sized} of ${sized + unsized}`}</Field>
+              </PanelSectionRow>
+              <PanelSectionRow>
+                <Field label={strings.total}>{formatBytes(totalBytes(shown))}</Field>
+              </PanelSectionRow>
+            </>
+          ) : (
+            <PanelSectionRow>
+              <Field label={strings.shortcutsOff} />
+            </PanelSectionRow>
+          )}
+          <PanelSectionRow>
+            <Field label={strings.lastScan}>{scanned}</Field>
+          </PanelSectionRow>
+          <PanelSectionRow>
+            <ButtonItem
+              layout="below"
+              disabled={busy}
+              onClick={async () => {
+                setStarting(true);
+                await rescan();
+                setStarting(false);
+                refresh();
+              }}
+            >
+              {busy ? strings.scanning : strings.rescan}
+            </ButtonItem>
+          </PanelSectionRow>
+        </PanelSection>
+      )}
+      <PanelSection>
+        <PanelSectionRow>
+          <ButtonItem layout="inline" label={strings.features} onClick={() => setFeaturesOpen(!featuresOpen)}>
+            {featuresOpen ? strings.hide : strings.show}
+          </ButtonItem>
+        </PanelSectionRow>
+        {featuresOpen && (
+          <>
+            <FeatureToggle setting="size_label" label={strings.sizeLabel} description={strings.sizeLabelDescription} />
+            <FeatureToggle setting="sort_override" label={strings.includeMods} description={strings.includeModsDescription} />
+            <FeatureToggle setting="scan_shortcuts" label={strings.scanShortcuts} description={strings.scanShortcutsDescription} />
+          </>
+        )}
+      </PanelSection>
+      {/* Keep this section last: the Ko-fi button is meant to be the panel's last stop. */}
+      <PanelSection>
+        <PanelSectionRow>
+          <Field description={strings.support} bottomSeparator="none" />
+        </PanelSectionRow>
+        <PanelSectionRow>
+          <ButtonItem
+            layout="below"
+            onClick={() => {
+              Navigation.CloseSideMenus();
+              Navigation.NavigateToExternalWeb(KOFI_URL);
+            }}
+          >
+            {strings.supportButton}
+          </ButtonItem>
+        </PanelSectionRow>
+        <PanelSectionRow>
+          <Field label={strings.version}>{version}</Field>
+        </PanelSectionRow>
+      </PanelSection>
+    </>
   );
 }
 
@@ -99,12 +190,8 @@ export default definePlugin(() => {
   const overviewChanges = SteamClient.Apps.RegisterForAppOverviewChanges(scheduleApply) as unknown as
     | { unregister?: () => void }
     | undefined;
-  const unpatchGamePage = patchGamePage();
   const onSizesUpdated = addEventListener("sizes_updated", refresh);
-  getSettings().then((saved) => {
-    settings = saved;
-    setSortOverrideEnabled(saved.sort_override, store.get());
-  });
+  getSettings().then(applySettings);
   refresh();
 
   return {
@@ -114,7 +201,8 @@ export default definePlugin(() => {
     content: <Content />,
     onDismount() {
       overviewChanges?.unregister?.();
-      unpatchGamePage();
+      unpatchGamePage?.();
+      unpatchGamePage = undefined;
       removeEventListener("sizes_updated", onSizesUpdated);
       clearTimeout(reapplyTimer);
       clearSizes();

@@ -14,12 +14,14 @@ function overviewOf(appid: number): OverviewLike | null {
   return appStore.GetAppOverviewByAppID(appid) as unknown as OverviewLike | null;
 }
 
-function setSize(appid: number, appType: number, bytes: number) {
+// Returns whether the size was written.
+function setSize(appid: number, appType: number, bytes: number): boolean {
   const overview = overviewOf(appid);
-  if (overview?.app_type !== appType) return;
+  if (overview?.app_type !== appType) return false;
   if (!patched.has(overview.appid)) patched.set(overview.appid, overview.size_on_disk);
   const value = String(bytes);
   if (overview.size_on_disk !== value) overview.size_on_disk = value;
+  return true;
 }
 
 function restoreSize(appid: number) {
@@ -30,13 +32,17 @@ function restoreSize(appid: number) {
 
 export function applySizes(state: SizesState) {
   if (!enabled) return;
+  const written = new Set<number>();
   for (const [appid, info] of Object.entries(state.sizes)) {
-    setSize(Number(appid), THIRD_PARTY_APP_TYPE, info.bytes);
+    if (setSize(Number(appid), THIRD_PARTY_APP_TYPE, info.bytes)) written.add(Number(appid));
   }
   // Steam's own number already is right for a Steam game without mods.
   for (const [appid, info] of Object.entries(state.steam ?? {})) {
-    if (info.mods > 0) setSize(Number(appid), STEAM_GAME_APP_TYPE, info.base + info.mods);
-    else if (patched.has(Number(appid))) restoreSize(Number(appid));
+    if (info.mods > 0 && setSize(Number(appid), STEAM_GAME_APP_TYPE, info.base + info.mods)) written.add(Number(appid));
+  }
+  // A game that lost its mods, or a shortcut no longer scanned, gets Steam's value back.
+  for (const appid of [...patched.keys()]) {
+    if (!written.has(appid)) restoreSize(appid);
   }
 }
 

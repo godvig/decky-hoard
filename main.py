@@ -12,7 +12,10 @@ import scanner
 
 CACHE_NAME = "sizes.json"
 SETTINGS_NAME = "settings.json"
-DEFAULT_SETTINGS = {"sort_override": True}
+# enabled is the master switch. sort_override keeps its first name so saved settings still apply.
+DEFAULT_SETTINGS = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True}
+# Shortcut results a scan without shortcuts carries over from the last cache.
+SHORTCUT_FIELDS = ("sizes", "unsized", "total_bytes")
 RESCAN_AFTER_SECONDS = 24 * 60 * 60
 CHECK_EVERY_SECONDS = 15 * 60
 
@@ -62,11 +65,15 @@ class Plugin:
         # Written before mods were measured.
         if "steam" not in cache:
             return True
+        include_shortcuts = self._load_settings()["scan_shortcuts"]
+        # Shortcut sizes kept from before shortcut scanning was turned off are stale.
+        if include_shortcuts and not cache.get("shortcuts_scanned", True):
+            return True
         scanned_at = cache.get("scanned_at", 0)
         if time.time() - scanned_at > RESCAN_AFTER_SECONDS:
             return True
         # A game was added or removed since the last scan.
-        for path in scanner.watched_paths(decky.DECKY_USER_HOME):
+        for path in scanner.watched_paths(decky.DECKY_USER_HOME, include_shortcuts):
             try:
                 if os.path.getmtime(path) > scanned_at:
                     return True
@@ -74,13 +81,24 @@ class Plugin:
                 pass
         return False
 
+    def _should_scan(self):
+        # Turned off, Hoard leaves the disk alone until it's turned on again.
+        return self._load_settings()["enabled"] and self._needs_scan(self._load_cache())
+
     async def _scan(self):
         if self._scanning:
             return
         self._scanning = True
         try:
             started = time.time()
-            result = await asyncio.to_thread(scanner.scan, decky.DECKY_USER_HOME, self._stopping.is_set)
+            include_shortcuts = self._load_settings()["scan_shortcuts"]
+            result = await asyncio.to_thread(scanner.scan, decky.DECKY_USER_HOME, self._stopping.is_set,
+                                             include_shortcuts)
+            if not include_shortcuts:
+                # Hidden while shortcut scanning is off, not forgotten.
+                cache = self._load_cache()
+                result.update({field: cache[field] for field in SHORTCUT_FIELDS if field in cache})
+            result["shortcuts_scanned"] = include_shortcuts
             result["scanned_at"] = started
             await asyncio.to_thread(self._save_cache, result)
             decky.logger.info(
@@ -98,7 +116,7 @@ class Plugin:
 
     async def _watch(self):
         while True:
-            if self._needs_scan(self._load_cache()):
+            if self._should_scan():
                 await self._scan()
             await asyncio.sleep(CHECK_EVERY_SECONDS)
 
@@ -113,11 +131,20 @@ class Plugin:
     async def set_setting(self, key, value):
         settings = self._load_settings()
         if key in DEFAULT_SETTINGS:
+            was_on = settings[key]
             settings[key] = type(DEFAULT_SETTINGS[key])(value)
             self._write_json(self._settings_path(), settings)
+            # Catch up now rather than at the watcher's next check, up to 15 minutes later.
+            if settings[key] and not was_on and self._should_scan():
+                asyncio.ensure_future(self._scan())
         return settings
 
+    async def get_version(self):
+        return decky.DECKY_PLUGIN_VERSION
+
     async def rescan(self):
+        if not self._load_settings()["enabled"]:
+            return False
         asyncio.ensure_future(self._scan())
         return True
 

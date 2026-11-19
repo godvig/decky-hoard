@@ -43,9 +43,16 @@ Decky looks for the installed Hoard to replace by the zip's file name.
   what Steam installed (only when they add up to 10 MiB or more).
 - **Library sort and filters.** Steam's sort by size on disk and its size filters include
   non-Steam games and mods. This changes Steam's numbers in memory only, never in Steam's files,
-  and puts them back when Hoard unloads. Turn it off with **Use in library sort**.
+  and puts them back when Hoard unloads. Turn it off with **Include mods in sorting**.
 - **Quick Access panel.** How many shortcuts are sized, their total, the last scan time, and
-  **Rescan now**.
+  **Rescan now**. Under **Features**, each feature has its own switch: the size on the game
+  page, **Include mods in sorting**, and **Non-Steam scanning**. With non-Steam scanning off,
+  shortcuts are neither measured nor shown; their last sizes are kept and refreshed when it's
+  turned back on.
+- **Enable Hoard.** The switch at the top of the panel. Off, Hoard changes nothing in Steam:
+  no size on the game page, Steam's own sizes in the sort and filters, and no scans. On, it all
+  comes back without a restart. Unlike disabling Hoard in Decky's settings, the panel stays
+  there to turn it back on, and the setting is kept across restarts.
 - **Quiet background scans.** Every 15 minutes Hoard checks whether to rescan: after 24 hours,
   or when a shortcut or a Steam library changed. Scans run at the lowest CPU priority so they
   stay out of a running game's way.
@@ -61,7 +68,7 @@ shows Steam's own size until the next scan.
 |---|---|---|
 | Scanner | `scanner.py` | Reads `shortcuts.vdf`, Steam's library folders and app manifests, Mod Organizer, OpenMW and Heroic config, and measures folders. Pure functions, no Decky imports. |
 | Backend | `main.py` | Decky plugin class. Runs the scan watcher in a thread, caches results, stores settings, emits `sizes_updated`. |
-| Frontend | `src/` | `index.tsx` wires up the plugin and the Quick Access panel, `gamePage.tsx` patches the game page route, `sortOverride.ts` changes Steam's size fields, `sizes.ts` holds formatting and state. |
+| Frontend | `src/` | `index.tsx` wires up the plugin and the Quick Access panel, `gamePage.tsx` patches the game page route, `sortOverride.ts` changes Steam's size fields, `sizes.ts` holds formatting and state, `settings.ts` decides which features are on, `strings.ts` holds every UI string. |
 
 The backend writes `sizes.json` and `settings.json` to `DECKY_PLUGIN_SETTINGS_DIR`, which Decky
 puts at `~/homebrew/settings/Hoard/`. The frontend asks for the cache when it loads and again
@@ -102,8 +109,16 @@ version in `package.json`, publishes a release with the zip attached.
 
 ## Roadmap
 
+Hoard is about storage: how big each game really is, what takes the space, and what can go.
+
 - Finish the Gaming Mode checks in `docs/TEST-MATRIX.md` on more themes and storage setups.
-- A list of the biggest games, mods included, in the Quick Access panel.
+- An opt-in check for new releases, since the Decky store doesn't offer Hoard's updates.
+- Counts that leave out emulators, apps and tools, and a list of the biggest games, mods
+  included, in the Quick Access panel.
+- Installed games not played for a chosen number of months, with the space they take.
+- An overview of the mods Hoard found for each game.
+- Opt-in Steam collections from Hoard's data, such as games over 50 GB.
+- Clean-up of leftover shader caches for games that are no longer installed.
 - Submission to the Decky store.
 
 ## Support

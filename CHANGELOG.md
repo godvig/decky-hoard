@@ -3,6 +3,20 @@
 All notable changes to Hoard. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **Enable Hoard** at the top of the Quick Access panel. Off, Hoard changes nothing in Steam
+  and pauses its scans, without disabling the plugin in Decky.
+- A **Features** section with a switch for each feature: the size on the game page,
+  **Include mods in sorting** and **Non-Steam scanning**.
+- A Ko-fi link and Hoard's version at the bottom of the panel.
+
+### Changed
+
+- **Use in library sort** is now **Include mods in sorting**. The saved setting is kept.
+
 ## [0.3.2] - 2026-11-18
 
 ### Fixed

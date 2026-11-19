@@ -324,10 +324,11 @@ def _steam_libraries(home: str) -> list[str]:
     return list(dict.fromkeys(libraries))
 
 
-def watched_paths(home: str) -> list[str]:
+def watched_paths(home: str, include_shortcuts: bool = True) -> list[str]:
     """Paths whose mtime changes when a game is added or removed."""
+    shortcuts = shortcut_files(home) if include_shortcuts else []
     # Steam adds and deletes an appmanifest in steamapps for each install.
-    return shortcut_files(home) + [os.path.join(library, "steamapps") for library in _steam_libraries(home)]
+    return shortcuts + [os.path.join(library, "steamapps") for library in _steam_libraries(home)]
 
 
 def scan_steam(home: str, instances: dict[str, str], size_of) -> dict[str, dict]:
@@ -366,9 +367,10 @@ def _steam_game(entry: dict, steam_games: dict[str, dict]) -> dict | None:
     return None
 
 
-def scan(home: str, should_stop=_never) -> dict:
+def scan(home: str, should_stop=_never, include_shortcuts: bool = True) -> dict:
     """Size every shortcut and Steam game. Results are keyed by appid as a string.
 
+    With include_shortcuts false only Steam games are sized, and sizes and unsized come back empty.
     Raises ScanStopped once should_stop returns true, so the plugin can unload mid-scan.
     """
     heroic = load_heroic_installs(home)
@@ -385,7 +387,8 @@ def scan(home: str, should_stop=_never) -> dict:
     sizes = {}
     unsized = {}
     counted = set()
-    for appid, entry in load_shortcuts(home).items():
+    shortcuts = load_shortcuts(home) if include_shortcuts else {}
+    for appid, entry in shortcuts.items():
         name = entry.get("appname") or str(appid)
         game = _steam_game(entry, steam_games)
         if game:

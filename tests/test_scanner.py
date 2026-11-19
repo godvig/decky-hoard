@@ -207,3 +207,15 @@ def test_installing_a_steam_game_changes_steamapps_mtime(steam):
     os.utime(apps, (0, 0))
     install_steam_game(steam, 70, "New", 1 * MB)
     assert os.path.getmtime(apps) > 0
+
+
+def test_scan_without_shortcuts_sizes_only_steam_games(home, steam):
+    install_steam_game(steam, 80, "Steam", 10 * MB)
+    folder = os.path.join(home, "Games/Folder")
+    write(os.path.join(folder, "game.bin"), 5 * MB)
+    write_shortcuts(home, {"appid": 3000000001, "AppName": "Folder", "Exe": f'"{folder}/game.bin"',
+                           "StartDir": f'"{folder}"'})
+    result = scanner.scan(home, include_shortcuts=False)
+    assert (result["sizes"], result["unsized"], result["total_bytes"]) == ({}, {}, 0)
+    assert set(result["steam"]) == {"80"}
+    assert not any(p.endswith("shortcuts.vdf") for p in scanner.watched_paths(home, include_shortcuts=False))
