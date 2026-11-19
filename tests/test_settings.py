@@ -33,7 +33,8 @@ def plugin(tmp_path, monkeypatch, emitted):
 
 
 DEFAULTS = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True,
-            "check_updates": False, "kind_overrides": {}}
+            "check_updates": False, "biggest_games": True, "not_played": True, "stale_months": 6,
+            "kind_overrides": {}}
 
 
 def test_everything_but_the_update_check_defaults_to_on(plugin):
@@ -239,3 +240,38 @@ def test_rescan_now_measures_everything_and_the_watcher_reuses(plugin, monkeypat
     asyncio.run(plugin._scan(full=True))
     # The first scan has nothing to reuse yet.
     assert calls == [{}, {"1": {"name": "Game", "base": 1, "mods": 0}}, None]
+
+
+def test_stale_months_is_kept_in_range(plugin):
+    assert asyncio.run(plugin.set_setting("stale_months", 12))["stale_months"] == 12
+    assert asyncio.run(plugin.set_setting("stale_months", 0))["stale_months"] == 1
+    assert asyncio.run(plugin.set_setting("stale_months", 99))["stale_months"] == 36
+
+
+def test_not_played_uses_steams_times_and_the_months_setting(plugin):
+    month = 30.44 * 24 * 60 * 60
+    plugin._save_cache({"format": 2, "sizes": {}, "unsized": {}, "steam": {
+        "10": {"name": "Old", "base": 100, "mods": 0},
+        "11": {"name": "Recent", "base": 50, "mods": 0},
+        "12": {"name": "Never", "base": 30, "mods": 0}}})
+    asyncio.run(plugin.set_app_types({"10": 1, "11": 1, "12": 1}))
+    asyncio.run(plugin.set_last_played({"10": int(time.time() - 8 * month), "11": int(time.time() - 2 * month),
+                                        "12": 0, "13": True}))
+    found = asyncio.run(plugin.get_sizes())["not_played"]
+    assert ([g["name"] for g in found["games"]], found["bytes"]) == (["Old"], 100)
+    assert ([g["name"] for g in found["unknown"]], found["unknown_bytes"]) == (["Never"], 30)
+    asyncio.run(plugin.set_setting("stale_months", 1))
+    found = asyncio.run(plugin.get_sizes())["not_played"]
+    assert [g["name"] for g in found["games"]] == ["Old", "Recent"]
+    with open(plugin._last_played_path()) as f:
+        assert "13" not in json.load(f)
+
+
+def test_shortcuts_drop_out_of_counts_and_lists_while_not_scanned(plugin):
+    plugin._save_cache({"format": 2, "sizes": {"3000000001": {"name": "ROM", "bytes": 5, "base": 5, "mods": 0,
+                                                              "source": "rom", "kind": "game", "guessed": False}},
+                        "unsized": {}, "steam": {}, "total_bytes": 5})
+    asyncio.run(plugin.set_setting("scan_shortcuts", False))
+    sizes = asyncio.run(plugin.get_sizes())
+    assert (sizes["biggest"], sizes["not_played"]["unknown"], sizes["counts"]["shortcut_games"]) == ([], [], 0)
+    assert "3000000001" in plugin._load_cache()["sizes"]

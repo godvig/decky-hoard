@@ -12,7 +12,14 @@ export interface Settings {
   scan_shortcuts: boolean;
   // Hoard's only network access, off until the user turns it on.
   check_updates: boolean;
+  biggest_games: boolean;
+  not_played: boolean;
+  // How long a game must go unplayed to show under "Not played", 1 to 36.
+  stale_months: number;
 }
+
+// The settings that are on/off switches.
+export type Switch = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
 
 export const DEFAULT_SETTINGS: Settings = {
   enabled: true,
@@ -20,6 +27,9 @@ export const DEFAULT_SETTINGS: Settings = {
   size_label: true,
   scan_shortcuts: true,
   check_updates: false,
+  biggest_games: true,
+  not_played: true,
+  stale_months: 6,
 };
 
 export function sortOverrideOn(settings: Settings): boolean {

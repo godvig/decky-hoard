@@ -84,3 +84,17 @@ Update check:
 - [ ] Copy a 20 MB file into a Steam game without mods, in its top folder. After the next
       automatic scan (or Rescan now) the game page shows "+ 20 MB mods".
 - [ ] **Rescan now** takes about as long as the first scan: everything is measured.
+
+## Not played in X months
+
+- [ ] The section title follows the slider: move it from 6 to 1 and to 36, and the list and the
+      "you could free" sum change with it. The value is kept after a restart.
+- [ ] A game you played this week is not in the list at 1 month. A game not played for a year is.
+- [ ] No emulator, app or tool is in the list, however long since it was opened.
+- [ ] **No play time recorded** shows games never played, and **Show** lists them. None of them is
+      in the list above.
+- [ ] Press A on a game in either list: Quick Access closes and its game page opens, with
+      Uninstall reachable in Steam's own menu. Play is visible and focused.
+- [ ] Features → Not played off: the section goes away. Features → Biggest games off: that one too.
+- [ ] D-pad: the slider moves with left/right without leaving the row, and **Support on Ko-fi**
+      is still the last item you can focus.

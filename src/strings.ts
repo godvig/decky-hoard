@@ -33,6 +33,18 @@ export const strings = {
     openmw: "OpenMW",
   } as Record<string, string>,
 
+  notPlayedTitle: (months: number) => `Not played in ${months} ${months === 1 ? "month" : "months"}`,
+  months: "Months",
+  couldFree: (count: number, size: string) => `${count} ${count === 1 ? "game" : "games"}, ${size} you could free`,
+  lastPlayedOn: (date: string) => `Last played ${date}`,
+  noPlayTime: (count: number, size: string) => `No play time recorded: ${count} ${count === 1 ? "game" : "games"}, ${size}`,
+  noPlayTimeDescription: "Never played, or added by another Steam account. Not counted above.",
+  showGames: (count: number) => `Show ${count}`,
+  biggestGames: "Biggest games",
+  biggestGamesDescription: "Lists the ten largest games in this panel.",
+  notPlayed: "Not played",
+  notPlayedDescription: "Lists installed games you haven't played for a while, using Steam's own last-played time.",
+
   gameOrNot: "Game or not",
   gameOrNotDescription: "Only games are counted and ranked. Disk totals take everything.",
   kinds: { game: "Game", app: "App", emulator: "Emulator", tool: "Tool" },

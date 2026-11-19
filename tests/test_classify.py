@@ -121,3 +121,26 @@ def test_entries_put_what_needs_a_look_first():
     assert [(e["name"], e["review"]) for e in result["entries"]] == [
         ("Emulator", True), ("Odd", True), ("Proton 9.0", True),
         ("Broken ROM", False), ("Game", False), ("Indie", False)]
+
+
+def test_not_played_counts_only_games_on_disk_and_never_guesses():
+    month = classify.SECONDS_PER_MONTH
+    now = 100 * month
+    cache = {
+        "sizes": {
+            "3000000001": {"name": "Old ROM", "bytes": 300, "base": 300, "mods": 0, "source": "rom", "kind": "game"},
+            "3000000002": {"name": "Old app", "bytes": 900, "base": 900, "mods": 0, "source": "flatpak", "kind": "app"},
+            "3000000003": {"name": "Other account", "bytes": 50, "base": 50, "mods": 0, "source": "heroic",
+                           "kind": "game"},
+        },
+        "unsized": {"3000000004": {"name": "Broken", "kind": "game"}},
+        "steam": {"10": {"name": "Modded", "base": 400, "mods": 100}},
+    }
+    times = {"3000000001": int(now - 7 * month), "3000000002": int(now - 7 * month), "10": int(now - 6.5 * month)}
+    result = classify.apply_kinds(cache, {"10": 1}, {}, times, now, 6)
+    found = result["not_played"]
+    assert [(g["name"], g["bytes"]) for g in found["games"]] == [("Modded", 500), ("Old ROM", 300)]
+    assert found["bytes"] == 800
+    # No time at all, as for a shortcut from another Steam account: unknown, not old.
+    assert [g["name"] for g in found["unknown"]] == ["Other account"]
+    assert classify.apply_kinds(cache, {"10": 1}, {}, times, now, 8)["not_played"]["bytes"] == 0

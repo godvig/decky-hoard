@@ -1,11 +1,11 @@
 import { addEventListener, callable, definePlugin, removeEventListener } from "@decky/api";
-import { ButtonItem, Field, Navigation, PanelSection, PanelSectionRow, staticClasses, ToggleField } from "@decky/ui";
+import { ButtonItem, Field, Navigation, PanelSection, PanelSectionRow, SliderField, staticClasses, ToggleField } from "@decky/ui";
 import { useEffect, useState } from "react";
 
 import { patchGamePage } from "./gamePage";
-import { Settings, settingsStore, shownState, sortOverrideOn } from "./settings";
-import { Entry, formatBytes, RankedGame, SizesState, store, totalBytes } from "./sizes";
-import { applySizes, appTypes, clearSizes, setSortOverrideEnabled } from "./sortOverride";
+import { Settings, settingsStore, shownState, sortOverrideOn, Switch } from "./settings";
+import { Entry, formatBytes, NotPlayed, RankedGame, SizesState, store, totalBytes } from "./sizes";
+import { applySizes, appTypes, clearSizes, lastPlayed, setSortOverrideEnabled } from "./sortOverride";
 import { KOFI_URL, strings } from "./strings";
 
 interface UpdateInfo {
@@ -21,18 +21,19 @@ interface UpdateInfo {
 const getSizes = callable<[], SizesState>("get_sizes");
 const rescan = callable<[], boolean>("rescan");
 const getSettings = callable<[], Settings>("get_settings");
-const setSetting = callable<[key: keyof Settings, value: boolean], Settings>("set_setting");
+const setSetting = callable<[key: keyof Settings, value: boolean | number], Settings>("set_setting");
 const getVersion = callable<[], string>("get_version");
 const getUpdate = callable<[], UpdateInfo>("get_update");
 const checkUpdatesNow = callable<[], UpdateInfo>("check_updates_now");
 const setAppTypes = callable<[types: Record<string, number>], boolean>("set_app_types");
+const setLastPlayed = callable<[times: Record<string, number>], boolean>("set_last_played");
 const setCountsAsGame = callable<[appid: string, counts: boolean], SizesState>("set_counts_as_game");
 
 const REAPPLY_DELAY_MS = 1000;
 
 let reapplyTimer: ReturnType<typeof setTimeout> | undefined;
 let unpatchGamePage: (() => void) | undefined;
-let reportedTypes = "";
+let reported = "";
 
 function apply() {
   applySizes(shownState(store.get(), settingsStore.get()));
@@ -45,11 +46,13 @@ function scheduleApply() {
 
 async function refresh() {
   let next = await getSizes();
-  // Only the frontend can ask Steam what an app is. What that means is the backend's call.
+  // Only the frontend can ask Steam what an app is and when it was last played. What that
+  // means is the backend's call.
   const types = appTypes(Object.keys(next.steam ?? {}));
-  if (JSON.stringify(types) !== reportedTypes) {
-    reportedTypes = JSON.stringify(types);
-    await setAppTypes(types);
+  const times = lastPlayed([...Object.keys(next.steam ?? {}), ...Object.keys(next.sizes ?? {})]);
+  if (JSON.stringify([types, times]) !== reported) {
+    reported = JSON.stringify([types, times]);
+    await Promise.all([setAppTypes(types), setLastPlayed(times)]);
     next = await getSizes();
   }
   store.set(next);
@@ -73,14 +76,14 @@ function applySettings(next: Settings) {
   }
 }
 
-async function changeSetting(key: keyof Settings, value: boolean) {
+async function changeSetting(key: keyof Settings, value: boolean | number) {
   applySettings({ ...settingsStore.get(), [key]: value });
   applySettings(await setSetting(key, value));
   // Turning something on can start a scan.
   refresh();
 }
 
-function FeatureToggle({ setting, label, description }: { setting: keyof Settings; label: string; description: string }) {
+function FeatureToggle({ setting, label, description }: { setting: Switch; label: string; description: string }) {
   const [settings, setSettings] = useState(settingsStore.get);
 
   useEffect(() => settingsStore.subscribe(setSettings), []);
@@ -172,20 +175,78 @@ function BiggestGames({ games }: { games: RankedGame[] }) {
         </PanelSectionRow>
       )}
       {games.map((game) => (
-        <PanelSectionRow key={game.appid}>
-          <Field
-            label={game.name}
-            description={[strings.sources[game.source] ?? game.source, game.mods > 0 ? strings.withMods(formatBytes(game.mods)) : null]
-              .filter(Boolean)
-              .join(" · ")}
-            focusable
-            highlightOnFocus
-            onActivate={() => openGamePage(game.appid)}
-          >
-            {formatBytes(game.bytes)}
-          </Field>
-        </PanelSectionRow>
+        <GameRow
+          key={game.appid}
+          game={game}
+          description={[strings.sources[game.source] ?? game.source, game.mods > 0 ? strings.withMods(formatBytes(game.mods)) : null]
+            .filter(Boolean)
+            .join(" · ")}
+        />
       ))}
+    </PanelSection>
+  );
+}
+
+function GameRow({ game, description }: { game: RankedGame; description: string }) {
+  return (
+    <PanelSectionRow>
+      <Field label={game.name} description={description} focusable highlightOnFocus onActivate={() => openGamePage(game.appid)}>
+        {formatBytes(game.bytes)}
+      </Field>
+    </PanelSectionRow>
+  );
+}
+
+// Read-only: selecting a game opens its page, where Steam's own Uninstall is.
+function NotPlayedGames({ found, months }: { found: NotPlayed; months: number }) {
+  const [showAll, setShowAll] = useState(false);
+  const [showUnknown, setShowUnknown] = useState(false);
+  const shown = showAll ? found.games : found.games.slice(0, 10);
+
+  return (
+    <PanelSection title={strings.notPlayedTitle(months)}>
+      <PanelSectionRow>
+        <SliderField
+          label={strings.months}
+          value={months}
+          min={1}
+          max={36}
+          step={1}
+          showValue
+          onChange={(value) => changeSetting("stale_months", value)}
+        />
+      </PanelSectionRow>
+      <PanelSectionRow>
+        <Field label={strings.couldFree(found.games.length, formatBytes(found.bytes))} />
+      </PanelSectionRow>
+      {shown.map((game) => (
+        <GameRow
+          key={game.appid}
+          game={game}
+          description={strings.lastPlayedOn(new Date(game.last_played * 1000).toLocaleDateString())}
+        />
+      ))}
+      {!showAll && found.games.length > shown.length && (
+        <PanelSectionRow>
+          <ButtonItem layout="below" onClick={() => setShowAll(true)}>
+            {strings.showAll(found.games.length - shown.length)}
+          </ButtonItem>
+        </PanelSectionRow>
+      )}
+      {found.unknown.length > 0 && (
+        <PanelSectionRow>
+          <ButtonItem
+            layout="below"
+            label={strings.noPlayTime(found.unknown.length, formatBytes(found.unknown_bytes))}
+            description={strings.noPlayTimeDescription}
+            onClick={() => setShowUnknown(!showUnknown)}
+          >
+            {showUnknown ? strings.hide : strings.showGames(found.unknown.length)}
+          </ButtonItem>
+        </PanelSectionRow>
+      )}
+      {showUnknown &&
+        found.unknown.map((game) => <GameRow key={game.appid} game={game} description={strings.sources[game.source] ?? game.source} />)}
     </PanelSection>
   );
 }
@@ -306,7 +367,10 @@ function Content() {
           </PanelSectionRow>
         </PanelSection>
       )}
-      {settings.enabled && <BiggestGames games={shown.biggest ?? []} />}
+      {settings.enabled && settings.biggest_games && <BiggestGames games={shown.biggest ?? []} />}
+      {settings.enabled && settings.not_played && shown.not_played && (
+        <NotPlayedGames found={shown.not_played} months={settings.stale_months} />
+      )}
       <PanelSection>
         <PanelSectionRow>
           <ButtonItem layout="inline" label={strings.features} onClick={() => setFeaturesOpen(!featuresOpen)}>
@@ -318,6 +382,8 @@ function Content() {
             <FeatureToggle setting="size_label" label={strings.sizeLabel} description={strings.sizeLabelDescription} />
             <FeatureToggle setting="sort_override" label={strings.includeMods} description={strings.includeModsDescription} />
             <FeatureToggle setting="scan_shortcuts" label={strings.scanShortcuts} description={strings.scanShortcutsDescription} />
+            <FeatureToggle setting="biggest_games" label={strings.biggestGames} description={strings.biggestGamesDescription} />
+            <FeatureToggle setting="not_played" label={strings.notPlayed} description={strings.notPlayedDescription} />
             <FeatureToggle setting="check_updates" label={strings.checkUpdates} description={strings.checkUpdatesDescription} />
           </>
         )}

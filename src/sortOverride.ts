@@ -56,6 +56,16 @@ export function appTypes(appids: string[]): Record<string, number> {
   return types;
 }
 
+// Steam's last-played time for each appid it knows, in seconds. 0 means none recorded.
+export function lastPlayed(appids: string[]): Record<string, number> {
+  const times: Record<string, number> = {};
+  for (const appid of appids) {
+    const time = overviewOf(Number(appid))?.rt_last_time_played;
+    if (typeof time === "number") times[appid] = time;
+  }
+  return times;
+}
+
 export function clearSizes() {
   for (const appid of [...patched.keys()]) restoreSize(appid);
 }

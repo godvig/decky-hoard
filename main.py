@@ -16,10 +16,16 @@ CACHE_NAME = "sizes.json"
 SETTINGS_NAME = "settings.json"
 UPDATES_NAME = "updates.json"
 APP_TYPES_NAME = "app_types.json"
+LAST_PLAYED_NAME = "last_played.json"
+STALE_MONTHS_RANGE = (1, 36)
 # enabled is the master switch. sort_override keeps its first name so saved settings still apply.
 DEFAULT_SETTINGS = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True,
                     # Hoard's only network access, so it waits for the user to ask for it.
                     "check_updates": False,
+                    "biggest_games": True,
+                    "not_played": True,
+                    # How long a game must go unplayed to show under "Not played".
+                    "stale_months": 6,
                     # The user's "Not a game" and "Count as game", as {appid: kind}.
                     "kind_overrides": {}}
 # Shortcut results a scan without shortcuts carries over from the last cache.
@@ -75,12 +81,23 @@ class Plugin:
         return os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, APP_TYPES_NAME)
 
     def _load_app_types(self):
+        return self._load_ints(self._app_types_path())
+
+    def _last_played_path(self):
+        return os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, LAST_PLAYED_NAME)
+
+    def _load_ints(self, path):
         try:
-            with open(self._app_types_path()) as f:
-                types = json.load(f)
-            return {str(k): v for k, v in types.items() if isinstance(v, int)}
+            with open(path) as f:
+                data = json.load(f)
+            return {str(k): v for k, v in data.items() if isinstance(v, int) and not isinstance(v, bool)}
         except (OSError, ValueError, AttributeError):
             return {}
+
+    def _save_ints(self, path, data):
+        clean = {str(k): v for k, v in data.items() if isinstance(v, int) and not isinstance(v, bool)}
+        if clean != self._load_ints(path):
+            self._write_json(path, clean)
 
     def _updates_path(self):
         return os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, UPDATES_NAME)
@@ -190,16 +207,24 @@ class Plugin:
             await asyncio.sleep(CHECK_EVERY_SECONDS)
 
     async def get_sizes(self):
-        cache = classify.apply_kinds(self._load_cache(), self._load_app_types(),
-                                     self._load_settings()["kind_overrides"])
+        settings = self._load_settings()
+        cache = self._load_cache()
+        if not settings["scan_shortcuts"]:
+            # Kept on disk for when scanning is turned back on, but left out of every count and list.
+            cache.update(sizes={}, unsized={}, total_bytes=0)
+        cache = classify.apply_kinds(cache, self._load_app_types(), settings["kind_overrides"],
+                                     self._load_ints(self._last_played_path()), time.time(), settings["stale_months"])
         cache["scanning"] = self._scanning
         return cache
 
     async def set_app_types(self, types):
         """Steam's app type per installed Steam app. Only the frontend can ask Steam for them."""
-        clean = {str(k): v for k, v in types.items() if isinstance(v, int)}
-        if clean != self._load_app_types():
-            self._write_json(self._app_types_path(), clean)
+        self._save_ints(self._app_types_path(), types)
+        return True
+
+    async def set_last_played(self, times):
+        """Steam's last-played time per app, in seconds. Hoard doesn't track play time itself."""
+        self._save_ints(self._last_played_path(), times)
         return True
 
     async def set_counts_as_game(self, appid, counts):
@@ -227,10 +252,12 @@ class Plugin:
 
     async def set_setting(self, key, value):
         settings = self._load_settings()
-        # Switches only. Overrides have set_kind.
-        if isinstance(DEFAULT_SETTINGS.get(key), bool):
+        # Switches and numbers only. Overrides have set_kind.
+        if isinstance(DEFAULT_SETTINGS.get(key), (bool, int)):
             was_on = settings[key]
             settings[key] = type(DEFAULT_SETTINGS[key])(value)
+            if key == "stale_months":
+                settings[key] = min(max(settings[key], STALE_MONTHS_RANGE[0]), STALE_MONTHS_RANGE[1])
             self._write_json(self._settings_path(), settings)
             # Catch up now rather than at the watcher's next check, up to 15 minutes later.
             if settings[key] and not was_on and self._should_scan():

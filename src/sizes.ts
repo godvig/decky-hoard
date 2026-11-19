@@ -42,6 +42,15 @@ export interface Entry {
   review: boolean;
 }
 
+export interface NotPlayed {
+  months: number;
+  games: (RankedGame & { last_played: number })[];
+  bytes: number;
+  // Steam has no play time for these: never played, or not in this account's library.
+  unknown: RankedGame[];
+  unknown_bytes: number;
+}
+
 export interface Counts {
   shortcut_games: number;
   sized_shortcut_games: number;
@@ -58,6 +67,7 @@ export interface SizesState {
   counts?: Counts;
   biggest?: RankedGame[];
   entries?: Entry[];
+  not_played?: NotPlayed;
   // Set once the plugin unloads, so an open game page drops the stat.
   removed?: boolean;
 }
@@ -67,6 +77,7 @@ export interface OverviewLike {
   appid: number;
   app_type: number;
   size_on_disk?: number | string;
+  rt_last_time_played?: number;
 }
 
 export const EMPTY_STATE: SizesState = { sizes: {}, unsized: {}, steam: {}, scanned_at: 0, scanning: false };

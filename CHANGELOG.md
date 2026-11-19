@@ -21,6 +21,10 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - **Biggest games** in the panel: the ten largest games, mods included, from any source.
   Selecting one opens its game page.
 - **Game or not** in the panel, to count an entry as a game or not when Hoard gets it wrong.
+- **Not played in X months** in the panel: installed games not played for a number of months you
+  choose, largest first, with the space they take together. It uses Steam's own last-played
+  time, and games without one are listed apart rather than guessed.
+- **Biggest games** and **Not played** each have a switch under Features.
 - Automatic scans skip Steam games without mods that haven't changed since they were last
   measured, for up to a week. **Rescan now** still measures everything.
 

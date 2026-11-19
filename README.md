@@ -49,11 +49,18 @@ Decky looks for the installed Hoard to replace by the zip's file name.
   still take everything. See [What counts as a game](#what-counts-as-a-game).
 - **Biggest games.** The ten largest games in the panel, mods included, from Steam and non-Steam
   alike, with where each one comes from. Select one to open its game page.
+- **Not played in X months.** Installed games you haven't played for a number of months that
+  you choose (1 to 36, 6 by default), largest first, and how much space they take together.
+  The time is Steam's own last-played time; Hoard doesn't track play time itself. Games Steam
+  has no time for, because they were never played or belong to another Steam account, are
+  listed apart under **No play time recorded** and never counted as old. Selecting a game opens
+  its page, where Steam's own Uninstall is: Hoard removes nothing here.
 - **Game or not.** A list in the panel of everything that isn't counted as a game, or that Hoard
   only guessed is one, each with a switch to count it or not. **Show more** lists the rest.
 - **Quick Access panel.** How many non-Steam games are sized, the shortcuts' total, the last scan time, and
   **Rescan now**. Under **Features**, each feature has its own switch: the size on the game
-  page, **Include mods in sorting**, and **Non-Steam scanning**. With non-Steam scanning off,
+  page, **Include mods in sorting**, **Non-Steam scanning**, **Biggest games**, **Not played**
+  and **Check for updates**. With non-Steam scanning off,
   shortcuts are neither measured nor shown; their last sizes are kept and refreshed when it's
   turned back on.
 - **Enable Hoard.** The switch at the top of the panel. Off, Hoard changes nothing in Steam:
@@ -104,7 +111,7 @@ switch it under **Game or not**, and open an issue with how the shortcut launche
 | Part | Files | Job |
 |---|---|---|
 | Update check | `updates.py` | Asks GitHub for the latest release's version and compares it with the installed one. Pure functions except the one request. |
-| Classifier | `classify.py` | Decides what each entry is, and builds the counts, the biggest games and the game-or-not list from that. Pure functions. |
+| Classifier | `classify.py` | Decides what each entry is, and builds the counts, the biggest games, the not-played list and the game-or-not list from that. Pure functions. |
 | Scanner | `scanner.py` | Reads `shortcuts.vdf`, Steam's library folders and app manifests, Mod Organizer, OpenMW and Heroic config, and measures folders. Pure functions, no Decky imports. |
 | Backend | `main.py` | Decky plugin class. Runs the scan watcher in a thread, caches results, stores settings, emits `sizes_updated`. |
 | Frontend | `src/` | `index.tsx` wires up the plugin and the Quick Access panel, `gamePage.tsx` patches the game page route, `sortOverride.ts` changes Steam's size fields, `sizes.ts` holds formatting and state, `settings.ts` decides which features are on, `strings.ts` holds every UI string. |
@@ -169,7 +176,6 @@ version in `package.json`, publishes a release with the zip attached.
 Hoard is about storage: how big each game really is, what takes the space, and what can go.
 
 - Finish the Gaming Mode checks in `docs/TEST-MATRIX.md` on more themes and storage setups.
-- Installed games not played for a chosen number of months, with the space they take.
 - An overview of the mods Hoard found for each game.
 - Opt-in Steam collections from Hoard's data, such as games over 50 GB.
 - Clean-up of leftover shader caches for games that are no longer installed.

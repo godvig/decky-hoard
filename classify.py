@@ -11,6 +11,7 @@ KINDS = ("game", "app", "emulator", "tool")
 STEAM_GAME_APP_TYPE = 1
 STEAM_TOOL_APP_TYPE = 4
 BIGGEST_COUNT = 10
+SECONDS_PER_MONTH = 30.44 * 24 * 60 * 60
 
 # Used only when Steam hasn't told the frontend an app's type yet, such as on the first scan.
 STEAM_TOOL_NAMES = re.compile(r"^(Proton\b|Steam Linux Runtime\b|Legacy Steam Runtime\b|"
@@ -91,7 +92,8 @@ def is_game(item: dict) -> bool:
     return item.get("kind", "game") == "game"
 
 
-def apply_kinds(cache: dict, app_types: dict[str, int], overrides: dict[str, str]) -> dict:
+def apply_kinds(cache: dict, app_types: dict[str, int], overrides: dict[str, str],
+                last_played: dict[str, int] | None = None, now: float = 0.0, months: int = 6) -> dict:
     """The cache with each entry's final kind and the counts built from it.
 
     An override from the user wins over Steam's app type, which wins over the rules.
@@ -112,6 +114,7 @@ def apply_kinds(cache: dict, app_types: dict[str, int], overrides: dict[str, str
         result[group] = entries
     games = [item for group in ("sizes", "unsized") for item in result[group].values() if is_game(item)]
     result["biggest"] = biggest_games(result)
+    result["not_played"] = not_played(result, last_played or {}, now, months)
     result["entries"] = entry_list(result)
     result["counts"] = {
         "shortcut_games": len(games),
@@ -122,8 +125,8 @@ def apply_kinds(cache: dict, app_types: dict[str, int], overrides: dict[str, str
     return result
 
 
-def biggest_games(result: dict, limit: int = BIGGEST_COUNT) -> list[dict]:
-    """The largest games by size on disk, mods included, from Steam and shortcuts alike."""
+def _installed_games(result: dict) -> list[dict]:
+    """Every game on disk once, with its size, mods included."""
     games = [{"appid": appid, "name": item["name"], "bytes": item["base"] + item["mods"], "mods": item["mods"],
               "source": "steam"}
              for appid, item in result.get("steam", {}).items() if is_game(item)]
@@ -132,7 +135,33 @@ def biggest_games(result: dict, limit: int = BIGGEST_COUNT) -> list[dict]:
                "source": item.get("source", "")}
               for appid, item in result.get("sizes", {}).items()
               if is_game(item) and item.get("source") != "steam-game"]
-    return sorted(games, key=lambda game: game["bytes"], reverse=True)[:limit]
+    return games
+
+
+def biggest_games(result: dict, limit: int = BIGGEST_COUNT) -> list[dict]:
+    """The largest games by size on disk, mods included, from Steam and shortcuts alike."""
+    return sorted(_installed_games(result), key=lambda game: game["bytes"], reverse=True)[:limit]
+
+
+def not_played(result: dict, last_played: dict[str, int], now: float, months: int) -> dict:
+    """Installed games not played for months, and those Steam has no play time for.
+
+    The times are Steam's own, passed on by the frontend. Steam keeps 0 for a game never
+    played, and for a shortcut from another account there is no time at all: both go under
+    unknown rather than being guessed.
+    """
+    cutoff = now - months * SECONDS_PER_MONTH
+    stale, unknown = [], []
+    for game in _installed_games(result):
+        played = last_played.get(game["appid"], 0)
+        if played <= 0:
+            unknown.append(game)
+        elif played < cutoff:
+            stale.append({**game, "last_played": played})
+    by_size = lambda game: game["bytes"]  # noqa: E731
+    return {"months": months,
+            "games": sorted(stale, key=by_size, reverse=True), "bytes": sum(map(by_size, stale)),
+            "unknown": sorted(unknown, key=by_size, reverse=True), "unknown_bytes": sum(map(by_size, unknown))}
 
 
 def entry_list(result: dict) -> list[dict]:

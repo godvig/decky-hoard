@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { EMPTY_STATE, OverviewLike, SizesState, STEAM_GAME_APP_TYPE, THIRD_PARTY_APP_TYPE } from "./sizes";
-import { applySizes, appTypes, clearSizes, setSortOverrideEnabled } from "./sortOverride";
+import { applySizes, appTypes, clearSizes, lastPlayed, setSortOverrideEnabled } from "./sortOverride";
 
 let overviews: Record<number, OverviewLike>;
 
@@ -66,5 +66,13 @@ describe("app types", () => {
   it("reports Steam's type for the apps it knows only", () => {
     overviews[20] = { appid: 20, app_type: 4, size_on_disk: "10" };
     expect(appTypes(["10", "20", "99"])).toEqual({ 10: STEAM_GAME_APP_TYPE, 20: 4 });
+  });
+});
+
+describe("last played", () => {
+  it("reports Steam's time, 0 included, for the apps it knows only", () => {
+    overviews[10].rt_last_time_played = 1700000000;
+    overviews[11].rt_last_time_played = 0;
+    expect(lastPlayed(["10", "11", "99"])).toEqual({ 10: 1700000000, 11: 0 });
   });
 });
