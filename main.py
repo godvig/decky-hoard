@@ -150,18 +150,20 @@ class Plugin:
         # Turned off, Hoard leaves the disk alone until it's turned on again.
         return self._load_settings()["enabled"] and self._needs_scan(self._load_cache())
 
-    async def _scan(self):
+    async def _scan(self, full=False):
+        """full measures every folder. Otherwise unchanged Steam games without mods are reused."""
         if self._scanning:
             return
         self._scanning = True
         try:
             started = time.time()
             include_shortcuts = self._load_settings()["scan_shortcuts"]
+            cache = self._load_cache()
+            previous = None if full else cache.get("steam")
             result = await asyncio.to_thread(scanner.scan, decky.DECKY_USER_HOME, self._stopping.is_set,
-                                             include_shortcuts)
+                                             include_shortcuts, previous)
             if not include_shortcuts:
                 # Hidden while shortcut scanning is off, not forgotten.
-                cache = self._load_cache()
                 result.update({field: cache[field] for field in SHORTCUT_FIELDS if field in cache})
             result["shortcuts_scanned"] = include_shortcuts
             result["scanned_at"] = started
@@ -252,7 +254,8 @@ class Plugin:
     async def rescan(self):
         if not self._load_settings()["enabled"]:
             return False
-        asyncio.ensure_future(self._scan())
+        # Asked for by the user, so measure everything rather than trust the last scan.
+        asyncio.ensure_future(self._scan(full=True))
         return True
 
     async def _main(self):

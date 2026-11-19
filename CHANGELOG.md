@@ -21,6 +21,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - **Biggest games** in the panel: the ten largest games, mods included, from any source.
   Selecting one opens its game page.
 - **Game or not** in the panel, to count an entry as a game or not when Hoard gets it wrong.
+- Automatic scans skip Steam games without mods that haven't changed since they were last
+  measured, for up to a week. **Rescan now** still measures everything.
 
 ### Changed
 

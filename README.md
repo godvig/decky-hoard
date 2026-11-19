@@ -62,7 +62,10 @@ Decky looks for the installed Hoard to replace by the zip's file name.
   there to turn it back on, and the setting is kept across restarts.
 - **Quiet background scans.** Every 15 minutes Hoard checks whether to rescan: after 24 hours,
   or when a shortcut or a Steam library changed. Scans run at the lowest CPU priority so they
-  stay out of a running game's way.
+  stay out of a running game's way. A Steam game without mods whose app manifest, game folder
+  and Workshop folder haven't changed keeps its last measurement for up to a week, so its folder
+  isn't walked again. Games with mods and non-Steam shortcuts are measured every time, and
+  **Rescan now** measures everything.
 - **Update check, off by default.** Turn on **Check for updates** under Features, and Hoard asks
   GitHub once a day, and when you press **Check now**, whether a newer release exists. If so, the
   panel shows `Update available: vX.Y.Z`, how to install it, and a button that opens the release
@@ -72,7 +75,9 @@ Decky looks for the installed Hoard to replace by the zip's file name.
 
 Known limits: loose files in a Steam game folder can include files the game made itself, such
 as logs or shader caches, and they count as mods. A Steam game installed after the last scan
-shows Steam's own size until the next scan.
+shows Steam's own size until the next scan. A mod copied deep into a Steam game that had none,
+without touching the game folder itself, can go unnoticed for up to a week; **Rescan now**
+picks it up at once.
 
 ## What counts as a game
 
@@ -164,7 +169,6 @@ version in `package.json`, publishes a release with the zip attached.
 Hoard is about storage: how big each game really is, what takes the space, and what can go.
 
 - Finish the Gaming Mode checks in `docs/TEST-MATRIX.md` on more themes and storage setups.
-- Faster rescans that measure only the games that changed.
 - Installed games not played for a chosen number of months, with the space they take.
 - An overview of the mods Hoard found for each game.
 - Opt-in Steam collections from Hoard's data, such as games over 50 GB.

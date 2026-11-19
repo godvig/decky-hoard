@@ -76,3 +76,11 @@ Update check:
 - [ ] **Show more** lists the games; switching one off takes it out of the counts and Biggest games.
 - [ ] Turn Non-Steam scanning off: Biggest games and Game or not show Steam apps only.
 - [ ] D-pad: **Support on Ko-fi** is still the last item you can focus, also with Game or not open.
+
+## Faster scans
+
+- [ ] Leave Hoard alone for a scan after the first: the log's "sized ..." line shows a shorter
+      time than the first scan.
+- [ ] Copy a 20 MB file into a Steam game without mods, in its top folder. After the next
+      automatic scan (or Rescan now) the game page shows "+ 20 MB mods".
+- [ ] **Rescan now** takes about as long as the first scan: everything is measured.

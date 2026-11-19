@@ -11,11 +11,14 @@ import os
 import re
 import stat
 import struct
+import time
 
 import classify
 
 # Bumped when the cache's shape changes, so the plugin rescans instead of reading old entries.
 CACHE_FORMAT = 2
+# How long an automatic scan may reuse a Steam game's last measurement.
+REUSE_FOR_SECONDS = 7 * 24 * 60 * 60
 ROM_PLAYLISTS = (".cue", ".m3u")
 # Launchers rather than games: their own size says nothing about the game.
 SKIPPED_FILE_SUFFIXES = (".sh", ".desktop", ".so")
@@ -335,9 +338,32 @@ def watched_paths(home: str, include_shortcuts: bool = True) -> list[str]:
     return shortcuts + [os.path.join(library, "steamapps") for library in _steam_libraries(home)]
 
 
-def scan_steam(home: str, instances: dict[str, str], size_of) -> dict[str, dict]:
-    """Base and mod sizes of installed Steam apps, keyed by install folder."""
+def _mtime(path: str) -> float:
+    try:
+        return os.path.getmtime(path)
+    except OSError:
+        return 0.0
+
+
+def _reusable(previous: dict | None, stamp: list[float], now: float) -> bool:
+    """Whether a Steam game's last measurement still holds, without walking its folder again.
+
+    Only for a game that had no mods: Steam rewrites the manifest on every install and update,
+    and a mod dropped into the game folder changes its mtime. A mod placed deeper down is
+    missed, which is why a measurement is reused for a week at most.
+    """
+    return (previous is not None and previous.get("mods") == 0 and previous.get("stamp") == stamp
+            and now - previous.get("measured_at", 0) < REUSE_FOR_SECONDS)
+
+
+def scan_steam(home: str, instances: dict[str, str], size_of, previous: dict[str, dict] | None = None,
+               now: float = 0.0) -> dict[str, dict]:
+    """Base and mod sizes of installed Steam apps, keyed by install folder.
+
+    previous holds the last scan's Steam results by appid, for games whose folder can be skipped.
+    """
     modded = {game: instance for instance, game in instances.items()}
+    previous = previous or {}
     games = {}
     for library in _steam_libraries(home):
         apps = os.path.join(library, "steamapps")
@@ -351,14 +377,22 @@ def scan_steam(home: str, instances: dict[str, str], size_of) -> dict[str, dict]
                 continue
             if not os.path.isdir(folder):
                 continue
-            mods = size_of([os.path.join(apps, "workshop/content", appid)])
+            workshop = os.path.join(apps, "workshop/content", appid)
+            stamp = [_mtime(manifest), _mtime(folder), _mtime(workshop)]
+            last = previous.get(appid)
+            if folder not in modded and _reusable(last, stamp, now):
+                games[folder] = {"appid": appid, "name": name, "base": base, "mods": 0, "stamp": stamp,
+                                 "measured_at": last["measured_at"]}
+                continue
+            mods = size_of([workshop])
             if folder in modded:
                 mods += size_of(_mo2_mod_paths(modded[folder]))
             # Anything in the game folder that Steam didn't install came from a mod.
             loose = size_of([folder]) - base
             if loose >= LOOSE_MODS_MINIMUM:
                 mods += loose
-            games[folder] = {"appid": appid, "name": name, "base": base, "mods": mods}
+            games[folder] = {"appid": appid, "name": name, "base": base, "mods": mods, "stamp": stamp,
+                             "measured_at": now}
     return games
 
 
@@ -371,10 +405,12 @@ def _steam_game(entry: dict, steam_games: dict[str, dict]) -> dict | None:
     return None
 
 
-def scan(home: str, should_stop=_never, include_shortcuts: bool = True) -> dict:
+def scan(home: str, should_stop=_never, include_shortcuts: bool = True, previous: dict | None = None) -> dict:
     """Size every shortcut and Steam game. Results are keyed by appid as a string.
 
     With include_shortcuts false only Steam games are sized, and sizes and unsized come back empty.
+    previous is the last scan's Steam results: unchanged Steam games without mods are not walked
+    again. Shortcuts are always measured in full.
     Raises ScanStopped once should_stop returns true, so the plugin can unload mid-scan.
     """
     heroic = load_heroic_installs(home)
@@ -387,7 +423,7 @@ def scan(home: str, should_stop=_never, include_shortcuts: bool = True) -> dict:
                 measured[path] = measure(path, should_stop)
         return sum(measured[path] for path in paths)
 
-    steam_games = scan_steam(home, instances, size_of)
+    steam_games = scan_steam(home, instances, size_of, previous, time.time())
     sizes = {}
     unsized = {}
     counted = set()
@@ -413,7 +449,8 @@ def scan(home: str, should_stop=_never, include_shortcuts: bool = True) -> dict:
             counted.update(base_paths + mod_paths)
         else:
             unsized[str(appid)] = {"name": name, "source": source, "kind": kind, "guessed": guessed}
-    steam = {game["appid"]: {"name": game["name"], "base": game["base"], "mods": game["mods"]}
+    steam = {game["appid"]: {"name": game["name"], "base": game["base"], "mods": game["mods"], "stamp": game["stamp"],
+                             "measured_at": game["measured_at"]}
              for game in steam_games.values()}
     # Shortcuts can share a folder, so the total counts each folder only once.
     return {"format": CACHE_FORMAT, "sizes": sizes, "unsized": unsized, "steam": steam,

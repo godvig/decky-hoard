@@ -224,3 +224,18 @@ def test_counts_as_game_stores_only_what_differs_from_the_rules(plugin):
     asyncio.run(plugin.set_counts_as_game("3000000002", True))
     assert asyncio.run(plugin.get_settings())["kind_overrides"] == {}
     assert sizes["entries"][0]["name"] == "Emulator"
+
+
+def test_rescan_now_measures_everything_and_the_watcher_reuses(plugin, monkeypatch):
+    calls = []
+
+    def scan(home, should_stop, include_shortcuts, previous):
+        calls.append(previous)
+        return {"format": 2, "sizes": {}, "unsized": {}, "steam": {"1": {"name": "Game", "base": 1, "mods": 0}}}
+
+    monkeypatch.setattr(sys.modules["scanner"], "scan", scan)
+    asyncio.run(plugin._scan())
+    asyncio.run(plugin._scan())
+    asyncio.run(plugin._scan(full=True))
+    # The first scan has nothing to reuse yet.
+    assert calls == [{}, {"1": {"name": "Game", "base": 1, "mods": 0}}, None]

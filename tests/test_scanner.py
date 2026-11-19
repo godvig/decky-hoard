@@ -144,7 +144,8 @@ def test_scan_shortcut_inside_steam_game_reuses_its_size(home, steam):
     result = scanner.scan(home)
     assert result["sizes"]["3000000003"]["source"] == "steam-game"
     assert result["sizes"]["3000000003"]["bytes"] == 25 * MB
-    assert result["steam"]["60"] == {"name": "Modded", "base": 25 * MB, "mods": 0}
+    steam_game = result["steam"]["60"]
+    assert (steam_game["name"], steam_game["base"], steam_game["mods"]) == ("Modded", 25 * MB, 0)
 
 
 def test_scan_stops_between_folders_when_asked(home, steam):
@@ -220,3 +221,47 @@ def test_scan_without_shortcuts_sizes_only_steam_games(home, steam):
     assert (result["sizes"], result["unsized"], result["total_bytes"]) == ({}, {}, 0)
     assert set(result["steam"]) == {"80"}
     assert not any(p.endswith("shortcuts.vdf") for p in scanner.watched_paths(home, include_shortcuts=False))
+
+
+def counting_size_of(walked):
+    def size_of(paths):
+        walked.extend(paths)
+        return sum(map(scanner.measure, paths))
+    return size_of
+
+
+def test_unchanged_steam_game_without_mods_is_not_walked_again(home, steam):
+    folder = install_steam_game(steam, 90, "Plain", 10 * MB)
+    first = scanner.scan_steam(home, {}, counting_size_of([]), None, 1000.0)
+    previous = {game["appid"]: game for game in first.values()}
+    walked = []
+    second = scanner.scan_steam(home, {}, counting_size_of(walked), previous, 2000.0)
+    assert folder not in walked
+    assert second[folder]["measured_at"] == 1000.0
+    assert (second[folder]["base"], second[folder]["mods"]) == (10 * MB, 0)
+
+
+def test_steam_game_is_walked_again_when_it_changes_or_its_measurement_is_old(home, steam):
+    folder = install_steam_game(steam, 91, "Plain", 10 * MB)
+    first = scanner.scan_steam(home, {}, counting_size_of([]), None, 1000.0)
+    previous = {game["appid"]: game for game in first.values()}
+    walked = []
+    scanner.scan_steam(home, {}, counting_size_of(walked), previous, 1000.0 + scanner.REUSE_FOR_SECONDS)
+    assert folder in walked
+    # A mod dropped into the game folder changes the folder's mtime.
+    write(os.path.join(folder, "mod.pak"), 20 * MB)
+    os.utime(folder, (5000, 5000))
+    walked = []
+    third = scanner.scan_steam(home, {}, counting_size_of(walked), previous, 2000.0)
+    assert folder in walked
+    assert third[folder]["mods"] == 20 * MB
+
+
+def test_steam_game_with_mods_is_always_walked(home, steam):
+    folder = install_steam_game(steam, 92, "Workshop", 10 * MB)
+    write(os.path.join(steam, "steamapps/workshop/content/92/1/mod.pak"), 5 * MB)
+    first = scanner.scan_steam(home, {}, counting_size_of([]), None, 1000.0)
+    previous = {game["appid"]: game for game in first.values()}
+    walked = []
+    scanner.scan_steam(home, {}, counting_size_of(walked), previous, 1001.0)
+    assert folder in walked
