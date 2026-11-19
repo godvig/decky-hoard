@@ -16,8 +16,16 @@ and versions follow [Semantic Versioning](https://semver.org/).
   the latest release and shows whether an update is available, how to install it, and a button
   to its release page. It is Hoard's only network access; the README lists the exact request.
 
+- Counts take only games: emulators, apps and tools such as Proton are left out, while disk
+  totals still take everything. Each entry has a kind, decided in one place (`classify.py`).
+- **Biggest games** in the panel: the ten largest games, mods included, from any source.
+  Selecting one opens its game page.
+- **Game or not** in the panel, to count an entry as a game or not when Hoard gets it wrong.
+
 ### Changed
 
+- The cache is rescanned once after updating, because its entries now carry a kind. The way a
+  shortcut was found is now called its `source`.
 - **Use in library sort** is now **Include mods in sorting**. The saved setting is kept.
 
 ## [0.3.2] - 2026-11-18

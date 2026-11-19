@@ -12,6 +12,10 @@ import re
 import stat
 import struct
 
+import classify
+
+# Bumped when the cache's shape changes, so the plugin rescans instead of reading old entries.
+CACHE_FORMAT = 2
 ROM_PLAYLISTS = (".cue", ".m3u")
 # Launchers rather than games: their own size says nothing about the game.
 SKIPPED_FILE_SUFFIXES = (".sh", ".desktop", ".so")
@@ -390,23 +394,27 @@ def scan(home: str, should_stop=_never, include_shortcuts: bool = True) -> dict:
     shortcuts = load_shortcuts(home) if include_shortcuts else {}
     for appid, entry in shortcuts.items():
         name = entry.get("appname") or str(appid)
+        program, exe_args = _split_exe(entry.get("exe") or "")
+        options = f'{exe_args} {entry.get("launchoptions") or ""}'
         game = _steam_game(entry, steam_games)
         if game:
             sizes[str(appid)] = {"name": name, "bytes": game["base"] + game["mods"], "base": game["base"],
-                                 "mods": game["mods"], "kind": "steam-game", "paths": []}
+                                 "mods": game["mods"], "source": "steam-game", "kind": "game", "guessed": False,
+                                 "paths": []}
             continue
         start = (entry.get("startdir") or "").strip('"').rstrip("/")
         special = _resolve_mo2(start, instances) or _resolve_openmw(start, home)
-        kind, base_paths, mod_paths = special or (*resolve(entry, home, heroic), [])
+        source, base_paths, mod_paths = special or (*resolve(entry, home, heroic), [])
+        kind, guessed = classify.shortcut_kind(program, options, source)
         base, mods = size_of(base_paths), size_of(mod_paths)
         if base + mods > 0:
             sizes[str(appid)] = {"name": name, "bytes": base + mods, "base": base, "mods": mods,
-                                 "kind": kind, "paths": base_paths + mod_paths}
+                                 "source": source, "kind": kind, "guessed": guessed, "paths": base_paths + mod_paths}
             counted.update(base_paths + mod_paths)
         else:
-            unsized[str(appid)] = {"name": name, "kind": kind}
+            unsized[str(appid)] = {"name": name, "source": source, "kind": kind, "guessed": guessed}
     steam = {game["appid"]: {"name": game["name"], "base": game["base"], "mods": game["mods"]}
              for game in steam_games.values()}
     # Shortcuts can share a folder, so the total counts each folder only once.
-    return {"sizes": sizes, "unsized": unsized, "steam": steam,
+    return {"format": CACHE_FORMAT, "sizes": sizes, "unsized": unsized, "steam": steam,
             "total_bytes": sum(measured[path] for path in counted)}

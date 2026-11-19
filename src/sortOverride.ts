@@ -46,6 +46,16 @@ export function applySizes(state: SizesState) {
   }
 }
 
+// Steam's app type for each appid it knows, for the backend to tell games from tools.
+export function appTypes(appids: string[]): Record<string, number> {
+  const types: Record<string, number> = {};
+  for (const appid of appids) {
+    const type = overviewOf(Number(appid))?.app_type;
+    if (typeof type === "number") types[appid] = type;
+  }
+  return types;
+}
+
 export function clearSizes() {
   for (const appid of [...patched.keys()]) restoreSize(appid);
 }

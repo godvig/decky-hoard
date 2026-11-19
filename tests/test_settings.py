@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import sys
+import time
 import types
 
 import pytest
@@ -32,7 +33,7 @@ def plugin(tmp_path, monkeypatch, emitted):
 
 
 DEFAULTS = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True,
-            "check_updates": False}
+            "check_updates": False, "kind_overrides": {}}
 
 
 def test_everything_but_the_update_check_defaults_to_on(plugin):
@@ -75,7 +76,7 @@ def test_turning_hoard_on_scans_when_due(plugin, tmp_path, monkeypatch):
 
 
 def test_scan_without_shortcuts_keeps_their_last_sizes(plugin, tmp_path):
-    shortcut = {"name": "Shortcut", "bytes": 5, "base": 5, "mods": 0, "kind": "folder", "paths": []}
+    shortcut = {"name": "Shortcut", "bytes": 5, "base": 5, "mods": 0, "source": "folder", "kind": "game", "guessed": False, "paths": []}
     plugin._save_cache({"sizes": {"3000000001": shortcut}, "unsized": {}, "steam": {}, "total_bytes": 5,
                         "scanned_at": 0})
     asyncio.run(plugin.set_setting("scan_shortcuts", False))
@@ -178,3 +179,48 @@ def test_turned_off_hoard_checks_no_updates(plugin, github):
     assert not plugin._update_check_due()
     asyncio.run(plugin.check_updates_now())
     assert github.requests == []
+
+
+def test_a_cache_from_an_earlier_hoard_is_rescanned(plugin):
+    plugin._save_cache({"sizes": {}, "unsized": {}, "steam": {}, "scanned_at": time.time()})
+    assert plugin._needs_scan(plugin._load_cache())
+
+
+def test_sizes_carry_kinds_counts_and_steam_app_types(plugin):
+    plugin._save_cache({"sizes": {"3000000001": {"name": "Emulator", "bytes": 5, "kind": "emulator", "guessed": False}},
+                        "unsized": {}, "steam": {"20": {"name": "Runtime", "base": 1, "mods": 0}}})
+    asyncio.run(plugin.set_app_types({20: 4, "30": "not a type"}))
+    sizes = asyncio.run(plugin.get_sizes())
+    assert sizes["steam"]["20"]["kind"] == "tool"
+    assert sizes["counts"]["shortcut_games"] == 0
+    with open(plugin._app_types_path()) as f:
+        assert json.load(f) == {"20": 4}
+
+
+def test_set_kind_overrides_and_goes_back_to_the_rules(plugin):
+    plugin._save_cache({"sizes": {"3000000001": {"name": "Emulator", "bytes": 5, "kind": "emulator", "guessed": False}},
+                        "unsized": {}, "steam": {}})
+    sizes = asyncio.run(plugin.set_kind("3000000001", "game"))
+    assert (sizes["sizes"]["3000000001"]["kind"], sizes["counts"]["shortcut_games"]) == ("game", 1)
+    assert asyncio.run(plugin.get_settings())["kind_overrides"] == {"3000000001": "game"}
+    sizes = asyncio.run(plugin.set_kind("3000000001", None))
+    assert sizes["sizes"]["3000000001"]["kind"] == "emulator"
+    assert asyncio.run(plugin.get_settings())["kind_overrides"] == {}
+
+
+def test_overrides_cant_be_set_as_a_switch(plugin):
+    asyncio.run(plugin.set_setting("kind_overrides", True))
+    assert asyncio.run(plugin.get_settings())["kind_overrides"] == {}
+
+
+def test_counts_as_game_stores_only_what_differs_from_the_rules(plugin):
+    plugin._save_cache({"sizes": {"3000000001": {"name": "Emulator", "bytes": 5, "kind": "emulator", "guessed": False},
+                                  "3000000002": {"name": "Game", "bytes": 5, "kind": "game", "guessed": False}},
+                        "unsized": {}, "steam": {}})
+    asyncio.run(plugin.set_counts_as_game("3000000001", True))
+    asyncio.run(plugin.set_counts_as_game("3000000002", False))
+    assert asyncio.run(plugin.get_settings())["kind_overrides"] == {"3000000001": "game", "3000000002": "app"}
+    sizes = asyncio.run(plugin.set_counts_as_game("3000000001", False))
+    asyncio.run(plugin.set_counts_as_game("3000000002", True))
+    assert asyncio.run(plugin.get_settings())["kind_overrides"] == {}
+    assert sizes["entries"][0]["name"] == "Emulator"

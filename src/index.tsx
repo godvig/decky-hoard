@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 
 import { patchGamePage } from "./gamePage";
 import { Settings, settingsStore, shownState, sortOverrideOn } from "./settings";
-import { formatBytes, SizesState, store, totalBytes } from "./sizes";
-import { applySizes, clearSizes, setSortOverrideEnabled } from "./sortOverride";
+import { Entry, formatBytes, RankedGame, SizesState, store, totalBytes } from "./sizes";
+import { applySizes, appTypes, clearSizes, setSortOverrideEnabled } from "./sortOverride";
 import { KOFI_URL, strings } from "./strings";
 
 interface UpdateInfo {
@@ -25,11 +25,14 @@ const setSetting = callable<[key: keyof Settings, value: boolean], Settings>("se
 const getVersion = callable<[], string>("get_version");
 const getUpdate = callable<[], UpdateInfo>("get_update");
 const checkUpdatesNow = callable<[], UpdateInfo>("check_updates_now");
+const setAppTypes = callable<[types: Record<string, number>], boolean>("set_app_types");
+const setCountsAsGame = callable<[appid: string, counts: boolean], SizesState>("set_counts_as_game");
 
 const REAPPLY_DELAY_MS = 1000;
 
 let reapplyTimer: ReturnType<typeof setTimeout> | undefined;
 let unpatchGamePage: (() => void) | undefined;
+let reportedTypes = "";
 
 function apply() {
   applySizes(shownState(store.get(), settingsStore.get()));
@@ -41,8 +44,21 @@ function scheduleApply() {
 }
 
 async function refresh() {
-  store.set(await getSizes());
+  let next = await getSizes();
+  // Only the frontend can ask Steam what an app is. What that means is the backend's call.
+  const types = appTypes(Object.keys(next.steam ?? {}));
+  if (JSON.stringify(types) !== reportedTypes) {
+    reportedTypes = JSON.stringify(types);
+    await setAppTypes(types);
+    next = await getSizes();
+  }
+  store.set(next);
   apply();
+}
+
+function openGamePage(appid: string) {
+  Navigation.CloseSideMenus();
+  Navigation.Navigate(`/library/app/${appid}`);
 }
 
 // Brings every feature in line with the settings. With Hoard off, Steam is left as stock:
@@ -147,6 +163,79 @@ function UpdateSection() {
   );
 }
 
+function BiggestGames({ games }: { games: RankedGame[] }) {
+  return (
+    <PanelSection title={strings.biggestTitle}>
+      {games.length === 0 && (
+        <PanelSectionRow>
+          <Field label={strings.noGames} />
+        </PanelSectionRow>
+      )}
+      {games.map((game) => (
+        <PanelSectionRow key={game.appid}>
+          <Field
+            label={game.name}
+            description={[strings.sources[game.source] ?? game.source, game.mods > 0 ? strings.withMods(formatBytes(game.mods)) : null]
+              .filter(Boolean)
+              .join(" · ")}
+            focusable
+            highlightOnFocus
+            onActivate={() => openGamePage(game.appid)}
+          >
+            {formatBytes(game.bytes)}
+          </Field>
+        </PanelSectionRow>
+      ))}
+    </PanelSection>
+  );
+}
+
+function EntryToggle({ entry }: { entry: Entry }) {
+  const description = [strings.kinds[entry.kind], entry.guessed ? strings.guessed : null, entry.overridden ? strings.setByYou : null]
+    .filter(Boolean)
+    .join(" · ");
+  return (
+    <PanelSectionRow>
+      <ToggleField
+        label={entry.name}
+        description={description}
+        checked={entry.kind === "game"}
+        onChange={async (value) => {
+          store.set(await setCountsAsGame(entry.appid, value));
+          apply();
+        }}
+      />
+    </PanelSectionRow>
+  );
+}
+
+// Every entry with a "counts as a game" switch: the ones worth a look first, the rest on request.
+function GameOrNot({ entries }: { entries: Entry[] }) {
+  const [open, setOpen] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const review = entries.filter((entry) => entry.review);
+  const rest = entries.filter((entry) => !entry.review);
+
+  return (
+    <PanelSection>
+      <PanelSectionRow>
+        <ButtonItem layout="inline" label={strings.gameOrNot} description={open ? strings.gameOrNotDescription : undefined} onClick={() => setOpen(!open)}>
+          {open ? strings.hide : strings.show}
+        </ButtonItem>
+      </PanelSectionRow>
+      {open && review.map((entry) => <EntryToggle key={entry.appid} entry={entry} />)}
+      {open && !showAll && rest.length > 0 && (
+        <PanelSectionRow>
+          <ButtonItem layout="below" onClick={() => setShowAll(true)}>
+            {strings.showAll(rest.length)}
+          </ButtonItem>
+        </PanelSectionRow>
+      )}
+      {open && showAll && rest.map((entry) => <EntryToggle key={entry.appid} entry={entry} />)}
+    </PanelSection>
+  );
+}
+
 function Content() {
   const [state, setState] = useState(store.get);
   const [settings, setSettings] = useState(settingsStore.get);
@@ -166,8 +255,7 @@ function Content() {
   }, []);
 
   const shown = shownState(state, settings);
-  const sized = Object.values(shown.sizes).length;
-  const unsized = Object.values(shown.unsized).length;
+  const counts = shown.counts ?? { shortcut_games: 0, sized_shortcut_games: 0, guessed: 0 };
   const busy = state.scanning || starting;
   const scanned = state.scanned_at ? new Date(state.scanned_at * 1000).toLocaleString() : strings.notYet;
 
@@ -188,7 +276,7 @@ function Content() {
           {settings.scan_shortcuts ? (
             <>
               <PanelSectionRow>
-                <Field label={strings.sized}>{`${sized} of ${sized + unsized}`}</Field>
+                <Field label={strings.sized}>{strings.sizedOf(counts.sized_shortcut_games, counts.shortcut_games)}</Field>
               </PanelSectionRow>
               <PanelSectionRow>
                 <Field label={strings.total}>{formatBytes(totalBytes(shown))}</Field>
@@ -218,6 +306,7 @@ function Content() {
           </PanelSectionRow>
         </PanelSection>
       )}
+      {settings.enabled && <BiggestGames games={shown.biggest ?? []} />}
       <PanelSection>
         <PanelSectionRow>
           <ButtonItem layout="inline" label={strings.features} onClick={() => setFeaturesOpen(!featuresOpen)}>
@@ -233,6 +322,7 @@ function Content() {
           </>
         )}
       </PanelSection>
+      {settings.enabled && <GameOrNot entries={shown.entries ?? []} />}
       {settings.enabled && settings.check_updates && <UpdateSection />}
       {/* Keep this section last: the Ko-fi button is meant to be the panel's last stop. */}
       <PanelSection>

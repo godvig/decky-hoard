@@ -34,7 +34,15 @@ export function sizeLabelOn(settings: Settings): boolean {
 // scanning is off, so they are dropped here.
 export function shownState(state: SizesState, settings: Settings): SizesState {
   if (settings.scan_shortcuts) return state;
-  return { ...state, sizes: {}, unsized: {}, total_bytes: 0 };
+  const steam = new Set(Object.keys(state.steam ?? {}));
+  return {
+    ...state,
+    sizes: {},
+    unsized: {},
+    total_bytes: 0,
+    biggest: state.biggest?.filter((game) => game.source === "steam"),
+    entries: state.entries?.filter((entry) => steam.has(entry.appid)),
+  };
 }
 
 // The game page patch and the sort override start only once the saved settings are

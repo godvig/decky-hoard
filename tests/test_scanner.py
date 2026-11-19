@@ -130,10 +130,11 @@ def test_scan_sizes_folder_shortcut_and_marks_unknown_unsized(home):
         {"appid": 3000000002, "AppName": "Mystery", "Exe": '"/usr/bin/true"', "StartDir": '"/usr/bin"'},
     )
     result = scanner.scan(home)
-    assert result["sizes"]["3000000001"]["kind"] == "folder"
+    assert result["sizes"]["3000000001"]["source"] == "folder"
     assert result["sizes"]["3000000001"]["paths"] == [game]  # Widened to the top folder under ~/Games.
     assert result["sizes"]["3000000001"]["base"] == 3 * MB
-    assert result["unsized"]["3000000002"] == {"name": "Mystery", "kind": "unknown"}
+    # /usr/bin/true is a path, not a bare command, so nothing says what it is: a flagged guess.
+    assert result["unsized"]["3000000002"] == {"name": "Mystery", "source": "unknown", "kind": "game", "guessed": True}
     assert result["total_bytes"] == 3 * MB
 
 
@@ -141,7 +142,7 @@ def test_scan_shortcut_inside_steam_game_reuses_its_size(home, steam):
     folder = install_steam_game(steam, 60, "Modded", 25 * MB)
     write_shortcuts(home, {"appid": 3000000003, "AppName": "Launcher", "Exe": f'"{folder}/launcher.sh"'})
     result = scanner.scan(home)
-    assert result["sizes"]["3000000003"]["kind"] == "steam-game"
+    assert result["sizes"]["3000000003"]["source"] == "steam-game"
     assert result["sizes"]["3000000003"]["bytes"] == 25 * MB
     assert result["steam"]["60"] == {"name": "Modded", "base": 25 * MB, "mods": 0}
 
@@ -172,7 +173,7 @@ def test_scan_mod_organizer_splits_game_and_mods(home):
     write_shortcuts(home, {"appid": 3000000004, "AppName": "Fallout MO2", "Exe": f'"{instance}/launch.sh"',
                            "StartDir": f'"{instance}"'})
     info = scanner.scan(home)["sizes"]["3000000004"]
-    assert info["kind"] == "mod-organizer"
+    assert info["source"] == "mod-organizer"
     assert info["mods"] == 9 * MB
     assert info["base"] == 11 * MB + os.path.getsize(os.path.join(instance, "ModOrganizer.ini"))
 

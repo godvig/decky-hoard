@@ -62,3 +62,17 @@ Update check:
 3. A screenshot (Steam + R1).
 4. Leave the game page open, switch to Desktop Mode and tell Claude Code to inspect
    it over the CEF debug port (localhost:8080).
+
+## Honest counts and Biggest games
+
+- [ ] After updating, Hoard rescans once. The panel says `Sized X of Y games`, with emulators,
+      web apps and launchers left out of Y.
+- [ ] **Biggest games** lists ten games, largest first, no Proton or runtime among them, and an
+      emulator or launcher never shows up even if it is large.
+- [ ] D-pad onto a game in **Biggest games** and press A: Quick Access closes and the game's page
+      opens, Steam or non-Steam. Play is visible and focused.
+- [ ] **Game or not** → Show: emulators, apps and tools first. Switch one on: the counts go up by
+      one and it says "set by you". Switch it off again: "set by you" goes away.
+- [ ] **Show more** lists the games; switching one off takes it out of the counts and Biggest games.
+- [ ] Turn Non-Steam scanning off: Biggest games and Game or not show Steam apps only.
+- [ ] D-pad: **Support on Ko-fi** is still the last item you can focus, also with Game or not open.

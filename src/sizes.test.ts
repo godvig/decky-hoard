@@ -30,7 +30,7 @@ describe("sizeText", () => {
   const steamGame = { appid: 10, app_type: STEAM_GAME_APP_TYPE, size_on_disk: String(20 * GB) };
 
   it("shows base and mods for a sized shortcut", () => {
-    const s = state({ sizes: { 3000000001: { name: "A", bytes: 15 * GB, base: 10 * GB, mods: 5 * GB, kind: "folder", paths: [] } } });
+    const s = state({ sizes: { 3000000001: { name: "A", bytes: 15 * GB, base: 10 * GB, mods: 5 * GB, source: "folder", paths: [] } } });
     expect(sizeText(s, shortcut, false)).toBe("10.0 GB game + 5.0 GB mods");
     expect(sizeText(s, shortcut, true)).toBe("10.0 GB + 5.0 GB mods");
   });
@@ -56,7 +56,7 @@ describe("totalBytes", () => {
   });
 
   it("sums shortcuts when no total was sent", () => {
-    const item = { name: "", base: 0, mods: 0, kind: "folder", paths: [] };
+    const item = { name: "", base: 0, mods: 0, source: "folder", paths: [] };
     expect(totalBytes(state({ sizes: { 1: { ...item, bytes: 2 }, 2: { ...item, bytes: 3 } } }))).toBe(5);
   });
 });

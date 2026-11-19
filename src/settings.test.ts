@@ -8,8 +8,8 @@ let overviews: Record<number, OverviewLike>;
 
 const sized: SizesState = {
   ...EMPTY_STATE,
-  sizes: { 3000000001: { name: "Shortcut", bytes: 300, base: 200, mods: 100, kind: "folder", paths: [] } },
-  unsized: { 3000000002: { name: "Emulator", kind: "unknown" } },
+  sizes: { 3000000001: { name: "Shortcut", bytes: 300, base: 200, mods: 100, source: "folder", paths: [] } },
+  unsized: { 3000000002: { name: "Emulator", source: "unknown", kind: "emulator" } },
   steam: { 10: { name: "Modded", base: 1000, mods: 50 } },
   total_bytes: 300,
 };
@@ -60,6 +60,23 @@ describe("non-Steam scanning off", () => {
     expect([shown.sizes, shown.unsized, shown.total_bytes]).toEqual([{}, {}, 0]);
     expect(shown.steam).toBe(sized.steam);
     expect(shownState(sized, DEFAULT_SETTINGS)).toBe(sized);
+  });
+
+  it("drops shortcuts from the rankings and the game-or-not list", () => {
+    const state: SizesState = {
+      ...sized,
+      biggest: [
+        { appid: "10", name: "Modded", bytes: 1050, mods: 50, source: "steam" },
+        { appid: "3000000001", name: "Shortcut", bytes: 300, mods: 100, source: "folder" },
+      ],
+      entries: [
+        { appid: "3000000002", name: "Emulator", kind: "emulator", guessed: false, overridden: false, review: true },
+        { appid: "10", name: "Modded", kind: "game", guessed: false, overridden: false, review: false },
+      ],
+    };
+    const shown = shownState(state, noShortcuts);
+    expect(shown.biggest?.map((game) => game.appid)).toEqual(["10"]);
+    expect(shown.entries?.map((entry) => entry.appid)).toEqual(["10"]);
   });
 
   it("gives shortcuts Steam's value back in the sort, and leaves modded Steam games", () => {

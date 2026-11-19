@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { EMPTY_STATE, OverviewLike, SizesState, STEAM_GAME_APP_TYPE, THIRD_PARTY_APP_TYPE } from "./sizes";
-import { applySizes, clearSizes, setSortOverrideEnabled } from "./sortOverride";
+import { applySizes, appTypes, clearSizes, setSortOverrideEnabled } from "./sortOverride";
 
 let overviews: Record<number, OverviewLike>;
 
 const sized: SizesState = {
   ...EMPTY_STATE,
-  sizes: { 3000000001: { name: "Shortcut", bytes: 300, base: 200, mods: 100, kind: "folder", paths: [] } },
+  sizes: { 3000000001: { name: "Shortcut", bytes: 300, base: 200, mods: 100, source: "folder", paths: [] } },
   steam: {
     10: { name: "Modded", base: 1000, mods: 50 },
     11: { name: "Plain", base: 2000, mods: 0 },
@@ -59,5 +59,12 @@ describe("sort override", () => {
     setSortOverrideEnabled(true, sized);
     expect(overviews[10].size_on_disk).toBe("1000");
     clearSizes();
+  });
+});
+
+describe("app types", () => {
+  it("reports Steam's type for the apps it knows only", () => {
+    overviews[20] = { appid: 20, app_type: 4, size_on_disk: "10" };
+    expect(appTypes(["10", "20", "99"])).toEqual({ 10: STEAM_GAME_APP_TYPE, 20: 4 });
   });
 });

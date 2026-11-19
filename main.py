@@ -8,16 +8,20 @@ import time
 import decky
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import classify
 import scanner
 import updates
 
 CACHE_NAME = "sizes.json"
 SETTINGS_NAME = "settings.json"
 UPDATES_NAME = "updates.json"
+APP_TYPES_NAME = "app_types.json"
 # enabled is the master switch. sort_override keeps its first name so saved settings still apply.
 DEFAULT_SETTINGS = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True,
                     # Hoard's only network access, so it waits for the user to ask for it.
-                    "check_updates": False}
+                    "check_updates": False,
+                    # The user's "Not a game" and "Count as game", as {appid: kind}.
+                    "kind_overrides": {}}
 # Shortcut results a scan without shortcuts carries over from the last cache.
 SHORTCUT_FIELDS = ("sizes", "unsized", "total_bytes")
 RESCAN_AFTER_SECONDS = 24 * 60 * 60
@@ -61,10 +65,22 @@ class Plugin:
         try:
             with open(self._settings_path()) as f:
                 saved = json.load(f)
-            settings.update({k: v for k, v in saved.items() if k in DEFAULT_SETTINGS})
+            settings.update({k: v for k, v in saved.items()
+                             if k in DEFAULT_SETTINGS and isinstance(v, type(DEFAULT_SETTINGS[k]))})
         except (OSError, ValueError, AttributeError):
             pass
         return settings
+
+    def _app_types_path(self):
+        return os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, APP_TYPES_NAME)
+
+    def _load_app_types(self):
+        try:
+            with open(self._app_types_path()) as f:
+                types = json.load(f)
+            return {str(k): v for k, v in types.items() if isinstance(v, int)}
+        except (OSError, ValueError, AttributeError):
+            return {}
 
     def _updates_path(self):
         return os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, UPDATES_NAME)
@@ -111,8 +127,8 @@ class Plugin:
         await decky.emit("updates_changed")
 
     def _needs_scan(self, cache):
-        # Written before mods were measured.
-        if "steam" not in cache:
+        # Written by an earlier Hoard, before mods were measured or entries had a kind.
+        if cache.get("format") != scanner.CACHE_FORMAT:
             return True
         include_shortcuts = self._load_settings()["scan_shortcuts"]
         # Shortcut sizes kept from before shortcut scanning was turned off are stale.
@@ -172,16 +188,45 @@ class Plugin:
             await asyncio.sleep(CHECK_EVERY_SECONDS)
 
     async def get_sizes(self):
-        cache = self._load_cache()
+        cache = classify.apply_kinds(self._load_cache(), self._load_app_types(),
+                                     self._load_settings()["kind_overrides"])
         cache["scanning"] = self._scanning
         return cache
+
+    async def set_app_types(self, types):
+        """Steam's app type per installed Steam app. Only the frontend can ask Steam for them."""
+        clean = {str(k): v for k, v in types.items() if isinstance(v, int)}
+        if clean != self._load_app_types():
+            self._write_json(self._app_types_path(), clean)
+        return True
+
+    async def set_counts_as_game(self, appid, counts):
+        """The panel's switch: an override only where it differs from what the rules say."""
+        rules = classify.apply_kinds(self._load_cache(), self._load_app_types(), {})
+        rule_kind = next((group[str(appid)]["kind"] for group in (rules["sizes"], rules["unsized"], rules["steam"])
+                          if str(appid) in group), "game")
+        wanted = "game" if counts else ("app" if rule_kind == "game" else rule_kind)
+        return await self.set_kind(appid, None if wanted == rule_kind else wanted)
+
+    async def set_kind(self, appid, kind):
+        """Override what an entry is. A kind of None goes back to Hoard's own rules."""
+        settings = self._load_settings()
+        overrides = dict(settings["kind_overrides"])
+        if kind in classify.KINDS:
+            overrides[str(appid)] = kind
+        else:
+            overrides.pop(str(appid), None)
+        settings["kind_overrides"] = overrides
+        self._write_json(self._settings_path(), settings)
+        return await self.get_sizes()
 
     async def get_settings(self):
         return self._load_settings()
 
     async def set_setting(self, key, value):
         settings = self._load_settings()
-        if key in DEFAULT_SETTINGS:
+        # Switches only. Overrides have set_kind.
+        if isinstance(DEFAULT_SETTINGS.get(key), bool):
             was_on = settings[key]
             settings[key] = type(DEFAULT_SETTINGS[key])(value)
             self._write_json(self._settings_path(), settings)

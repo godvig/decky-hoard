@@ -6,25 +6,58 @@ import { strings } from "./strings";
 export const STEAM_GAME_APP_TYPE = 1;
 export const THIRD_PARTY_APP_TYPE = 1073741824;
 
+// Decided by the backend (classify.py). Counts and rankings take only games.
+export type Kind = "game" | "app" | "emulator" | "tool";
+
 export interface MeasuredSize {
   name: string;
   base: number;
   mods: number;
+  kind?: Kind;
 }
 
 export interface ShortcutSize extends MeasuredSize {
   bytes: number;
-  kind: string;
+  // How the scanner found its files, such as rom, folder or heroic.
+  source: string;
   paths: string[];
+}
+
+export interface RankedGame {
+  appid: string;
+  name: string;
+  bytes: number;
+  mods: number;
+  source: string;
+}
+
+export interface Entry {
+  appid: string;
+  name: string;
+  kind: Kind;
+  // No rule said what it is, so it counts as a game until the user says otherwise.
+  guessed: boolean;
+  overridden: boolean;
+  // Not a game, or only guessed to be one: worth a look from the user.
+  review: boolean;
+}
+
+export interface Counts {
+  shortcut_games: number;
+  sized_shortcut_games: number;
+  guessed: number;
 }
 
 export interface SizesState {
   sizes: Record<string, ShortcutSize>;
-  unsized: Record<string, { name: string; kind: string }>;
+  unsized: Record<string, { name: string; source: string; kind?: Kind }>;
   steam: Record<string, MeasuredSize>;
   scanned_at: number;
   scanning: boolean;
   total_bytes?: number;
+  counts?: Counts;
+  biggest?: RankedGame[];
+  entries?: Entry[];
   // Set once the plugin unloads, so an open game page drops the stat.
   removed?: boolean;
 }
