@@ -56,13 +56,19 @@ Decky looks for the installed Hoard to replace by the zip's file name.
   The time is Steam's own last-played time; Hoard doesn't track play time itself. Games Steam
   has no time for, because they were never played or belong to another Steam account, are
   listed apart under **No play time recorded** and never counted as old. Selecting a game opens
-  its page, where Steam's own Uninstall is: Hoard removes nothing here.
+  its page, where Steam's own Uninstall is: Hoard removes nothing here. If another plugin, such
+  as Shared Play Stats, fills in last-played times from other local accounts, Hoard sees those
+  times too.
+- **Piles, off by default.** Steam collections that Hoard keeps up to date from its own data:
+  **Over 50 GB** (the size is yours to set), **Not played in X months**, **Has mods** and
+  **On disk**, which holds every installed game, family-shared and non-Steam ones included. Turn
+  each one on by itself. See [Piles](#piles).
 - **Game or not.** A list in the panel of everything that isn't counted as a game, or that Hoard
   only guessed is one, each with a switch to count it or not. **Show more** lists the rest.
 - **Quick Access panel.** How many non-Steam games are sized, the shortcuts' total, the last scan time, and
   **Rescan now**. Under **Features**, each feature has its own switch: the size on the game
   page, **Include mods in sorting**, **Non-Steam scanning**, **Biggest games**, **Not played**,
-  **Mods** and **Check for updates**. With non-Steam scanning off,
+  **Mods** and **Check for updates**. Piles have their own section. With non-Steam scanning off,
   shortcuts are neither measured nor shown; their last sizes are kept and refreshed when it's
   turned back on.
 - **Enable Hoard.** The switch at the top of the panel. Off, Hoard changes nothing in Steam:
@@ -87,6 +93,31 @@ as logs or shader caches, and they count as mods; the mods overview lists them a
 shows Steam's own size until the next scan. A mod copied deep into a Steam game that had none,
 without touching the game folder itself, can go unnoticed for up to a week; **Rescan now**
 picks it up at once.
+
+## Piles
+
+A pile is an ordinary Steam collection, so it shows up in the library's Collections tab and can
+be used like any other. How Hoard handles them:
+
+- **Only its own.** Hoard stores the id Steam gives each collection it makes, and only ever
+  changes or removes a collection by that id. It never looks collections up by name, never
+  touches yours, and never hides, reorders or removes library tabs or changes whether Steam
+  thinks a game is installed.
+- **Per device.** Steam syncs collections to your account, so each pile's name ends with the
+  device it describes, such as `Over 50 GB · Steam Machine (Hoard)`. The name comes from the
+  device's model; change it under **Device name** in the panel. Steam keeps a collection's
+  non-Steam games on the device that added them, so on another device a pile shows its Steam
+  games only.
+- **Quiet writes.** Hoard writes a pile only when its games changed, three seconds after the
+  last change, so moving the size slider doesn't write on every step. A new size or device
+  name replaces Hoard's collection with a newly named one.
+- **Turning a pile off** removes its collection from Steam, on every device on the account,
+  after you confirm. The games stay installed. Deleting a pile's collection in Steam yourself
+  turns that pile off in Hoard.
+- **With Enable Hoard off,** piles stay in Steam as they were and aren't updated.
+- **If Steam changes.** Collections go through an internal Steam API. If it is missing or
+  doesn't behave as Hoard expects, Piles pause for the session, log one line, and change
+  nothing more.
 
 ## Where Hoard looks for mods
 
@@ -194,7 +225,6 @@ version in `package.json`, publishes a release with the zip attached.
 Hoard is about storage: how big each game really is, what takes the space, and what can go.
 
 - Finish the Gaming Mode checks in `docs/TEST-MATRIX.md` on more themes and storage setups.
-- Opt-in Steam collections from Hoard's data, such as games over 50 GB.
 - Clean-up of leftover shader caches for games that are no longer installed.
 - Submission to the Decky store.
 

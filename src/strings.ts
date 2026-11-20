@@ -60,6 +60,20 @@ export const strings = {
   modsOverview: "Mods",
   modsOverviewDescription: "Lists games with mods, how much space the mods take, and where they are.",
 
+  pilesTitle: "Piles",
+  pilesDescription: (device: string) =>
+    `Steam collections Hoard keeps up to date, named for ${device}. Hoard only changes the ones it made.`,
+  pileGames: (count: number) => `${count} ${count === 1 ? "game" : "games"}`,
+  pileThreshold: "Size for the Over pile",
+  deviceName: "Device name",
+  deviceNameDescription: "Tells this device's piles apart from another device's on the same account.",
+  pilesBroken: "Piles are paused: Steam's collections didn't work as Hoard expects. Nothing more was changed.",
+  pilesWhileOff: "Hoard is off, so piles stay as they are in Steam until it is turned on.",
+  removePileTitle: "Remove this pile?",
+  removePileDescription: (name: string) =>
+    `Hoard removes its collection "${name}" from Steam, on every device on this account. The games stay installed.`,
+  removePile: "Remove",
+
   gameOrNot: "Game or not",
   gameOrNotDescription: "Only games are counted and ranked. Disk totals take everything.",
   kinds: { game: "Game", app: "App", emulator: "Emulator", tool: "Tool" },

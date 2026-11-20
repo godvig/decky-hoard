@@ -1,11 +1,24 @@
 import { addEventListener, callable, definePlugin, removeEventListener } from "@decky/api";
-import { ButtonItem, Field, Navigation, PanelSection, PanelSectionRow, SliderField, staticClasses, ToggleField } from "@decky/ui";
+import {
+  ButtonItem,
+  ConfirmModal,
+  Field,
+  Navigation,
+  PanelSection,
+  PanelSectionRow,
+  showModal,
+  SliderField,
+  staticClasses,
+  TextField,
+  ToggleField,
+} from "@decky/ui";
 import { useEffect, useState } from "react";
 
 import { patchGamePage } from "./gamePage";
 import { Settings, settingsStore, shownState, sortOverrideOn, Switch } from "./settings";
-import { Entry, formatBytes, ModsOverview, NotPlayed, RankedGame, SizesState, store, totalBytes } from "./sizes";
-import { applySizes, appTypes, clearSizes, lastPlayed, setSortOverrideEnabled } from "./sortOverride";
+import { collectionStoreOf, removePile, syncPile } from "./piles";
+import { createStore, Entry, formatBytes, ModsOverview, NotPlayed, Pile, PileKey, RankedGame, SizesState, store, totalBytes } from "./sizes";
+import { applySizes, appOverview, appTypes, clearSizes, lastPlayed, setSortOverrideEnabled } from "./sortOverride";
 import { KOFI_URL, strings } from "./strings";
 
 interface UpdateInfo {
@@ -21,19 +34,66 @@ interface UpdateInfo {
 const getSizes = callable<[], SizesState>("get_sizes");
 const rescan = callable<[], boolean>("rescan");
 const getSettings = callable<[], Settings>("get_settings");
-const setSetting = callable<[key: keyof Settings, value: boolean | number], Settings>("set_setting");
+const setSetting = callable<[key: keyof Settings, value: boolean | number | string], Settings>("set_setting");
 const getVersion = callable<[], string>("get_version");
 const getUpdate = callable<[], UpdateInfo>("get_update");
 const checkUpdatesNow = callable<[], UpdateInfo>("check_updates_now");
 const setAppTypes = callable<[types: Record<string, number>], boolean>("set_app_types");
 const setLastPlayed = callable<[times: Record<string, number>], boolean>("set_last_played");
 const setCountsAsGame = callable<[appid: string, counts: boolean], SizesState>("set_counts_as_game");
+const setPileCollection = callable<[key: PileKey, id: string | null, name: string], unknown>("set_pile_collection");
 
 const REAPPLY_DELAY_MS = 1000;
+// Steam syncs collections to the cloud, so a slider being dragged must not write on every step.
+const PILE_SYNC_DELAY_MS = 3000;
 
 let reapplyTimer: ReturnType<typeof setTimeout> | undefined;
 let unpatchGamePage: (() => void) | undefined;
 let reported = "";
+let pileTimer: ReturnType<typeof setTimeout> | undefined;
+let syncingPiles = false;
+// Set once Steam's collections fail Hoard's checks: Piles stay paused until Hoard reloads.
+const pilesBroken = createStore<boolean>(false);
+
+function steamCollections() {
+  return collectionStoreOf((globalThis as { collectionStore?: unknown }).collectionStore);
+}
+
+function breakPiles(reason: unknown) {
+  if (!pilesBroken.get()) console.warn("[Hoard] Piles paused:", reason);
+  pilesBroken.set(true);
+}
+
+async function syncPiles() {
+  const state = store.get();
+  const on = Object.entries(state.piles ?? {}).filter(([, pile]) => pile.on) as [PileKey, Pile][];
+  if (!settingsStore.get().enabled || pilesBroken.get() || syncingPiles || on.length === 0) return;
+  const collections = steamCollections();
+  if (!collections) return breakPiles("Steam's collection store is missing or changed");
+  syncingPiles = true;
+  let changed = false;
+  try {
+    for (const [key, pile] of on) {
+      const result = await syncPile(collections, pile, appOverview);
+      if (result.kind === "made") await setPileCollection(key, result.collection.id, result.collection.name);
+      if (result.kind === "gone") {
+        await setPileCollection(key, null, "");
+        await setSetting(`pile_${key}`, false);
+      }
+      changed ||= result.kind !== "kept";
+    }
+  } catch (error) {
+    breakPiles(error);
+  } finally {
+    syncingPiles = false;
+  }
+  if (changed) refresh();
+}
+
+function schedulePileSync() {
+  clearTimeout(pileTimer);
+  pileTimer = setTimeout(syncPiles, PILE_SYNC_DELAY_MS);
+}
 
 function apply() {
   applySizes(shownState(store.get(), settingsStore.get()));
@@ -57,6 +117,7 @@ async function refresh() {
   }
   store.set(next);
   apply();
+  schedulePileSync();
 }
 
 function openGamePage(appid: string) {
@@ -76,7 +137,7 @@ function applySettings(next: Settings) {
   }
 }
 
-async function changeSetting(key: keyof Settings, value: boolean | number) {
+async function changeSetting(key: keyof Settings, value: boolean | number | string) {
   applySettings({ ...settingsStore.get(), [key]: value });
   applySettings(await setSetting(key, value));
   // Turning something on can start a scan.
@@ -309,6 +370,91 @@ function ModsSection({ overview }: { overview: ModsOverview }) {
   );
 }
 
+function PileToggle({ pileKey, pile, disabled }: { pileKey: PileKey; pile: Pile; disabled: boolean }) {
+  const turnOff = async () => {
+    const collections = steamCollections();
+    try {
+      if (pile.collection && collections) await removePile(collections, pile.collection);
+      await setPileCollection(pileKey, null, "");
+    } catch (error) {
+      breakPiles(error);
+    }
+    changeSetting(`pile_${pileKey}`, false);
+  };
+  return (
+    <PanelSectionRow>
+      <ToggleField
+        label={pile.name}
+        description={strings.pileGames(pile.appids.length)}
+        checked={pile.on}
+        disabled={disabled}
+        onChange={(value) => {
+          if (value || !pile.collection) {
+            changeSetting(`pile_${pileKey}`, value);
+            return;
+          }
+          // Removing a collection reaches every device on the account, so ask first.
+          showModal(
+            <ConfirmModal
+              strTitle={strings.removePileTitle}
+              strDescription={strings.removePileDescription(pile.name)}
+              strOKButtonText={strings.removePile}
+              onOK={turnOff}
+            />,
+          );
+        }}
+      />
+    </PanelSectionRow>
+  );
+}
+
+function DeviceName({ value, placeholder }: { value: string; placeholder: string }) {
+  const [text, setText] = useState(value);
+  return (
+    <PanelSectionRow>
+      <TextField
+        label={strings.deviceName}
+        description={strings.deviceNameDescription}
+        value={text}
+        placeholder={placeholder}
+        onChange={(event) => setText(event.target.value)}
+        // Each new name replaces every pile's collection, so only a finished name counts.
+        onBlur={() => text.trim() !== value && changeSetting("device_name", text.trim())}
+      />
+    </PanelSectionRow>
+  );
+}
+
+function Piles({ piles, device, settings }: { piles: Record<PileKey, Pile>; device: string; settings: Settings }) {
+  const [broken, setBroken] = useState(pilesBroken.get);
+  useEffect(() => pilesBroken.subscribe(setBroken), []);
+  return (
+    <PanelSection title={strings.pilesTitle}>
+      <PanelSectionRow>
+        <Field description={broken ? strings.pilesBroken : strings.pilesDescription(device)} bottomSeparator="none" />
+      </PanelSectionRow>
+      {(Object.entries(piles) as [PileKey, Pile][]).map(([key, pile]) => (
+        <PileToggle key={key} pileKey={key} pile={pile} disabled={broken} />
+      ))}
+      {settings.pile_big && (
+        <PanelSectionRow>
+          <SliderField
+            label={strings.pileThreshold}
+            value={settings.pile_big_gib}
+            min={10}
+            max={500}
+            step={10}
+            showValue
+            valueSuffix=" GB"
+            onChange={(value) => changeSetting("pile_big_gib", value)}
+          />
+        </PanelSectionRow>
+      )}
+      <DeviceName value={settings.device_name} placeholder={device} />
+    </PanelSection>
+  );
+}
+
 function EntryToggle({ entry }: { entry: Entry }) {
   const description = [strings.kinds[entry.kind], entry.guessed ? strings.guessed : null, entry.overridden ? strings.setByYou : null]
     .filter(Boolean)
@@ -448,6 +594,14 @@ function Content() {
           </>
         )}
       </PanelSection>
+      {settings.enabled && shown.piles && <Piles piles={shown.piles} device={shown.device ?? ""} settings={settings} />}
+      {!settings.enabled && Object.values(state.piles ?? {}).some((pile) => pile.collection) && (
+        <PanelSection>
+          <PanelSectionRow>
+            <Field description={strings.pilesWhileOff} />
+          </PanelSectionRow>
+        </PanelSection>
+      )}
       {settings.enabled && <GameOrNot entries={shown.entries ?? []} />}
       {settings.enabled && settings.check_updates && <UpdateSection />}
       {/* Keep this section last: the Ko-fi button is meant to be the panel's last stop. */}
@@ -500,6 +654,7 @@ export default definePlugin(() => {
       unpatchGamePage = undefined;
       removeEventListener("sizes_updated", onSizesUpdated);
       clearTimeout(reapplyTimer);
+      clearTimeout(pileTimer);
       clearSizes();
       // An open game page keeps its last render until something changes it.
       store.set({ ...store.get(), removed: true });

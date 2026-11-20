@@ -18,6 +18,8 @@ UPDATES_NAME = "updates.json"
 APP_TYPES_NAME = "app_types.json"
 LAST_PLAYED_NAME = "last_played.json"
 STALE_MONTHS_RANGE = (1, 36)
+BIG_GIB_RANGE = (10, 1000)
+DMI_PRODUCT = "/sys/devices/virtual/dmi/id/product_name"
 # enabled is the master switch. sort_override keeps its first name so saved settings still apply.
 DEFAULT_SETTINGS = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True,
                     # Hoard's only network access, so it waits for the user to ask for it.
@@ -27,6 +29,17 @@ DEFAULT_SETTINGS = {"enabled": True, "sort_override": True, "size_label": True, 
                     "mods_overview": True,
                     # How long a game must go unplayed to show under "Not played".
                     "stale_months": 6,
+                    # Piles: Steam collections Hoard makes, each off until turned on.
+                    "pile_big": False,
+                    "pile_stale": False,
+                    "pile_modded": False,
+                    "pile_on_disk": False,
+                    "pile_big_gib": 50,
+                    # Empty means the device's model, such as Steam Machine.
+                    "device_name": "",
+                    # The collections Hoard made, as {pile: {"id": ..., "name": ...}}. Only these
+                    # are ever changed or removed, found by id and never by name.
+                    "pile_collections": {},
                     # The user's "Not a game" and "Count as game", as {appid: kind}.
                     "kind_overrides": {}}
 # Shortcut results a scan without shortcuts carries over from the last cache.
@@ -215,8 +228,32 @@ class Plugin:
             cache.update(sizes={}, unsized={}, total_bytes=0)
         cache = classify.apply_kinds(cache, self._load_app_types(), settings["kind_overrides"],
                                      self._load_ints(self._last_played_path()), time.time(), settings["stale_months"])
+        cache["piles"] = {key: {**pile, "on": settings[f"pile_{key}"],
+                                "collection": settings["pile_collections"].get(key)}
+                          for key, pile in classify.piles(cache, settings["pile_big_gib"], self._device_name()).items()}
+        cache["device"] = self._device_name()
         cache["scanning"] = self._scanning
         return cache
+
+    def _device_name(self):
+        try:
+            with open(DMI_PRODUCT) as f:
+                product = f.read()
+        except OSError:
+            product = ""
+        return classify.device_name(self._load_settings()["device_name"], product, os.uname().nodename)
+
+    async def set_pile_collection(self, key, collection_id, name):
+        """Remember the collection Steam made for a pile, or forget it with an id of None."""
+        settings = self._load_settings()
+        collections = dict(settings["pile_collections"])
+        if key in classify.PILE_KEYS and isinstance(collection_id, str) and collection_id:
+            collections[key] = {"id": collection_id, "name": str(name)}
+        else:
+            collections.pop(key, None)
+        settings["pile_collections"] = collections
+        self._write_json(self._settings_path(), settings)
+        return collections
 
     async def set_app_types(self, types):
         """Steam's app type per installed Steam app. Only the frontend can ask Steam for them."""
@@ -253,17 +290,20 @@ class Plugin:
 
     async def set_setting(self, key, value):
         settings = self._load_settings()
-        # Switches and numbers only. Overrides have set_kind.
-        if isinstance(DEFAULT_SETTINGS.get(key), (bool, int)):
+        # Switches, numbers and the device name. Overrides and collections have their own calls.
+        if isinstance(DEFAULT_SETTINGS.get(key), (bool, int, str)):
             was_on = settings[key]
             settings[key] = type(DEFAULT_SETTINGS[key])(value)
-            if key == "stale_months":
-                settings[key] = min(max(settings[key], STALE_MONTHS_RANGE[0]), STALE_MONTHS_RANGE[1])
+            ranges = {"stale_months": STALE_MONTHS_RANGE, "pile_big_gib": BIG_GIB_RANGE}
+            if key in ranges:
+                settings[key] = min(max(settings[key], ranges[key][0]), ranges[key][1])
+            if key == "device_name":
+                settings[key] = settings[key].strip()[:40]
             self._write_json(self._settings_path(), settings)
             # Catch up now rather than at the watcher's next check, up to 15 minutes later.
-            if settings[key] and not was_on and self._should_scan():
+            if settings[key] is True and not was_on and self._should_scan():
                 asyncio.ensure_future(self._scan())
-            if settings[key] and not was_on and self._update_check_due():
+            if settings[key] is True and not was_on and self._update_check_due():
                 asyncio.ensure_future(self._check_updates())
         return settings
 

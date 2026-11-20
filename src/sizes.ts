@@ -68,6 +68,22 @@ export interface NotPlayed {
   unknown_bytes: number;
 }
 
+export const PILE_KEYS = ["big", "stale", "modded", "on_disk"] as const;
+export type PileKey = (typeof PILE_KEYS)[number];
+
+// The Steam collection Hoard made for a pile, by the id Steam gave it.
+export interface PileCollection {
+  id: string;
+  name: string;
+}
+
+export interface Pile {
+  name: string;
+  appids: string[];
+  on: boolean;
+  collection?: PileCollection | null;
+}
+
 export interface Counts {
   shortcut_games: number;
   sized_shortcut_games: number;
@@ -86,6 +102,8 @@ export interface SizesState {
   entries?: Entry[];
   not_played?: NotPlayed;
   mods?: ModsOverview;
+  piles?: Record<PileKey, Pile>;
+  device?: string;
   // Set once the plugin unloads, so an open game page drops the stat.
   removed?: boolean;
 }

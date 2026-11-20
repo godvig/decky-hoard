@@ -46,6 +46,11 @@ export function applySizes(state: SizesState) {
   }
 }
 
+// Steam's overview of an app, for collections to take.
+export function appOverview(appid: number): OverviewLike | null {
+  return overviewOf(appid);
+}
+
 // Steam's app type for each appid it knows, for the backend to tell games from tools.
 export function appTypes(appids: string[]): Record<string, number> {
   const types: Record<string, number> = {};

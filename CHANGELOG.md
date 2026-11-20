@@ -27,6 +27,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - **Biggest games** and **Not played** each have a switch under Features.
 - **Mods** in the panel: games with mods, most first, with the mods' share of the game and each
   folder they are in. Files Steam didn't install are listed apart, since they can be the game's own.
+- **Piles**, off by default: Steam collections that Hoard keeps up to date, for games over a
+  size you set, games not played for a while, games with mods, and every game on disk. Each is
+  named for the device, changed only by the id Hoard stored, and removed only after you confirm.
 - A mod location issue template, and a README table of every place Hoard looks for mods.
 - Automatic scans skip Steam games without mods that haven't changed since they were last
   measured, for up to a week. **Rescan now** still measures everything.

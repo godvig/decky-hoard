@@ -165,3 +165,28 @@ def test_mods_overview_lists_games_with_mods_and_where_they_are():
         ("Modded MO2", 300, 0.75), ("Workshop game", 100, 0.25)]
     assert found["games"][0]["mod_parts"] == [mo2]
     assert found["bytes"] == 400
+
+
+def test_device_name_prefers_the_users_then_the_model():
+    assert classify.device_name("Den", "Fremont", "steamdeck") == "Den"
+    assert classify.device_name("", "Fremont\n", "steamdeck") == "Steam Machine"
+    assert classify.device_name("", "Galileo", "steamdeck") == "Steam Deck"
+    assert classify.device_name("", "Some PC", "desk") == "desk"
+
+
+def test_piles_hold_games_only_by_their_rules():
+    gib = classify.GIB
+    cache = {
+        "sizes": {"3000000001": {"name": "ROM", "bytes": 2 * gib, "base": 2 * gib, "mods": 0, "source": "rom", "kind": "game"},
+                  "3000000002": {"name": "Big app", "bytes": 90 * gib, "base": 90 * gib, "mods": 0, "source": "flatpak",
+                                 "kind": "app"}},
+        "unsized": {},
+        "steam": {"10": {"name": "Huge", "base": 60 * gib, "mods": 0},
+                  "11": {"name": "Modded", "base": gib, "mods": gib, "mod_parts": []}},
+    }
+    result = classify.apply_kinds(cache, {"10": 1, "11": 1}, {}, {"10": 1}, 10 ** 9, 6)
+    piles = classify.piles(result, 50, "Den")
+    assert piles["big"] == {"name": "Over 50 GB · Den (Hoard)", "appids": ["10"]}
+    assert piles["modded"]["appids"] == ["11"]
+    assert piles["stale"] == {"name": "Not played in 6 months · Den (Hoard)", "appids": ["10"]}
+    assert piles["on_disk"]["appids"] == ["10", "11", "3000000001"]

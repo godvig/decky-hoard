@@ -15,6 +15,13 @@ export interface Settings {
   biggest_games: boolean;
   not_played: boolean;
   mods_overview: boolean;
+  pile_big: boolean;
+  pile_stale: boolean;
+  pile_modded: boolean;
+  pile_on_disk: boolean;
+  pile_big_gib: number;
+  // Empty means the device's model, such as Steam Machine.
+  device_name: string;
   // How long a game must go unplayed to show under "Not played", 1 to 36.
   stale_months: number;
 }
@@ -31,6 +38,12 @@ export const DEFAULT_SETTINGS: Settings = {
   biggest_games: true,
   not_played: true,
   mods_overview: true,
+  pile_big: false,
+  pile_stale: false,
+  pile_modded: false,
+  pile_on_disk: false,
+  pile_big_gib: 50,
+  device_name: "",
   stale_months: 6,
 };
 

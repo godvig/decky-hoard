@@ -180,3 +180,32 @@ def mods_overview(result: dict) -> dict:
              for game in _installed_games(result) if game["mods"] > 0 and game["bytes"] > 0]
     games.sort(key=lambda game: game["mods"], reverse=True)
     return {"games": games, "bytes": sum(game["mods"] for game in games)}
+
+
+PILE_KEYS = ("big", "stale", "modded", "on_disk")
+GIB = 1024 ** 3
+# Valve's own devices by their DMI product name, for a device name nobody has to type.
+VALVE_DEVICES = {"Jupiter": "Steam Deck", "Galileo": "Steam Deck", "Fremont": "Steam Machine"}
+
+
+def device_name(chosen: str, product: str, hostname: str) -> str:
+    """The name that tells this device's piles apart from another device's on the same account.
+
+    SteamOS names every device steamdeck, so the hostname is the last resort.
+    """
+    return chosen.strip() or VALVE_DEVICES.get(product.strip()) or hostname or "this device"
+
+
+def piles(result: dict, big_gib: int, device: str) -> dict[str, dict]:
+    """What each pile holds and what its collection is called. Games only, each game once."""
+    games = _installed_games(result)
+    months = result.get("not_played", {}).get("months", 6)
+    contents = {
+        "big": ("Over {} GB".format(big_gib), [g for g in games if g["bytes"] >= big_gib * GIB]),
+        "stale": (f"Not played in {months} {'month' if months == 1 else 'months'}",
+                  result.get("not_played", {}).get("games", [])),
+        "modded": ("Has mods", result.get("mods", {}).get("games", [])),
+        "on_disk": ("On disk", games),
+    }
+    return {key: {"name": f"{label} · {device} (Hoard)", "appids": sorted(g["appid"] for g in found)}
+            for key, (label, found) in contents.items()}

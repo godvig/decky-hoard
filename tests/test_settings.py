@@ -34,7 +34,8 @@ def plugin(tmp_path, monkeypatch, emitted):
 
 DEFAULTS = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True,
             "check_updates": False, "biggest_games": True, "not_played": True, "mods_overview": True, "stale_months": 6,
-            "kind_overrides": {}}
+            "pile_big": False, "pile_stale": False, "pile_modded": False, "pile_on_disk": False,
+            "pile_big_gib": 50, "device_name": "", "pile_collections": {}, "kind_overrides": {}}
 
 
 def test_everything_but_the_update_check_defaults_to_on(plugin):
@@ -275,3 +276,26 @@ def test_shortcuts_drop_out_of_counts_and_lists_while_not_scanned(plugin):
     sizes = asyncio.run(plugin.get_sizes())
     assert (sizes["biggest"], sizes["not_played"]["unknown"], sizes["counts"]["shortcut_games"]) == ([], [], 0)
     assert "3000000001" in plugin._load_cache()["sizes"]
+
+
+def test_piles_are_off_and_named_after_the_device(plugin, monkeypatch):
+    monkeypatch.setattr(sys.modules["main"], "DMI_PRODUCT", "/nonexistent")
+    plugin._save_cache({"format": 3, "sizes": {}, "unsized": {}, "steam": {"10": {"name": "Big", "base": 60 * 1024 ** 3,
+                                                                                 "mods": 0}}})
+    piles = asyncio.run(plugin.get_sizes())["piles"]
+    assert {key: pile["on"] for key, pile in piles.items()} == {"big": False, "stale": False, "modded": False,
+                                                               "on_disk": False}
+    asyncio.run(plugin.set_setting("device_name", "  Living room  "))
+    piles = asyncio.run(plugin.get_sizes())["piles"]
+    assert piles["big"]["name"] == "Over 50 GB · Living room (Hoard)"
+    assert piles["big"]["appids"] == ["10"]
+    asyncio.run(plugin.set_setting("pile_big_gib", 5000))
+    assert asyncio.run(plugin.get_settings())["pile_big_gib"] == 1000
+
+
+def test_pile_collections_are_remembered_and_forgotten_by_id(plugin):
+    assert asyncio.run(plugin.set_pile_collection("big", "uc-abc", "Over 50 GB · X (Hoard)")) == {
+        "big": {"id": "uc-abc", "name": "Over 50 GB · X (Hoard)"}}
+    assert asyncio.run(plugin.set_pile_collection("not-a-pile", "uc-def", "x")) == {
+        "big": {"id": "uc-abc", "name": "Over 50 GB · X (Hoard)"}}
+    assert asyncio.run(plugin.set_pile_collection("big", None, "")) == {}

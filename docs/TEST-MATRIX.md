@@ -108,3 +108,23 @@ Update check:
 - [ ] The game page of a ROM or a folder game says `(mods —)`; a Steam game without mods says `(no mods)`.
 - [ ] Features → Mods off: the section goes away.
 - [ ] D-pad: you can scroll past an open game's folder rows, and **Support on Ko-fi** is still last.
+
+## Piles
+
+Steam syncs collections to the account, so note your own collections before these checks.
+
+- [ ] All four piles are off after updating, and the Collections tab is unchanged.
+- [ ] Turn **On disk** on: after a few seconds `On disk · <device> (Hoard)` appears in the
+      Collections tab with the installed games, non-Steam ones included.
+- [ ] Turn **Over 50 GB** on, then move the slider from 50 to 100 and stop: after a few seconds
+      there is one `Over 100 GB` collection and no `Over 50 GB` one left behind.
+- [ ] Set **Device name** to something else and leave the field: every pile's name follows,
+      with no old ones left behind.
+- [ ] Turn a pile off: a dialog asks first. Cancel keeps it. Remove takes the collection away
+      and leaves your own collections, Favorites and Hidden untouched.
+- [ ] Delete a Hoard pile in Steam's Collections tab yourself: its switch in Hoard turns off.
+- [ ] Turn **Enable Hoard** off: piles stay in Steam, and the panel says they won't update.
+- [ ] Install a game over the size: the Over pile gets it after the next scan. Play is still
+      visible and focused on its game page.
+- [ ] D-pad: every pile switch, the slider and the device name are reachable, and **Support on
+      Ko-fi** is still last. The confirm dialog works with A and B.
