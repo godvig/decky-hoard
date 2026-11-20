@@ -1,6 +1,6 @@
 {
   "name": "hoard",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Shows size on disk, including mods, on the game page for Steam and non-Steam games.",
   "type": "module",
   "scripts": {
