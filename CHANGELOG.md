@@ -33,6 +33,8 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - **Clean-up**: leftover shader caches of games no longer installed, found in a dry run and
   removed only after you confirm the exact folders, with a log. Leftover Proton prefixes are
   listed but never removed, since they can hold saves. Nothing happens while a library is missing.
+- Biggest games, Not played and Mods start folded to one summary line each, so the rest of the
+  panel is a few D-pad presses away.
 - A mod location issue template, and a README table of every place Hoard looks for mods.
 - Automatic scans skip Steam games without mods that haven't changed since they were last
   measured, for up to a week. **Rescan now** still measures everything.

@@ -142,3 +142,11 @@ Steam syncs collections to the account, so note your own collections before thes
       and lists nothing.
 - [ ] Launch a game whose shader cache was removed: it starts, and Steam builds the cache again.
 - [ ] D-pad: every row is reachable and **Support on Ko-fi** is still last.
+
+## Folded lists
+
+- [ ] Biggest games, Not played and Mods each show one line with a summary and **Show**. A opens
+      the list and the button says **Hide**; A again folds it.
+- [ ] From **Enable Hoard**, D-pad down reaches Features, Clean-up and Piles in under ten presses
+      while the lists are folded.
+- [ ] The Not played slider is inside its folded section and works once it is open.

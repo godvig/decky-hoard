@@ -63,6 +63,8 @@ Decky looks for the installed Hoard to replace by the zip's file name.
   **Over 50 GB** (the size is yours to set), **Not played in X months**, **Has mods** and
   **On disk**, which holds every installed game, family-shared and non-Steam ones included. Turn
   each one on by itself. See [Piles](#piles).
+- **Short panel.** Biggest games, Not played and Mods each show one summary line, such as
+  `Largest: XCOM 2, 206.7 GB`, until you open them, so the D-pad passes each list in one step.
 - **Clean-up.** Finds leftovers of games that are no longer installed: shader caches, which
   Hoard can remove, and Proton prefixes, which it only lists because they can hold saves. See
   [Clean-up](#clean-up).

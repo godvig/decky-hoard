@@ -20,6 +20,7 @@ export const strings = {
 
   biggestTitle: "Biggest games",
   noGames: "No games sized yet",
+  biggestSummary: (name: string, size: string) => `Largest: ${name}, ${size}`,
   withMods: (mods: string) => `${mods} of it mods`,
   sources: {
     steam: "Steam",

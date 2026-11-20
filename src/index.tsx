@@ -12,7 +12,7 @@ import {
   TextField,
   ToggleField,
 } from "@decky/ui";
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 
 import { patchGamePage } from "./gamePage";
 import { Settings, settingsStore, shownState, sortOverrideOn, Switch } from "./settings";
@@ -244,14 +244,41 @@ function UpdateSection() {
   );
 }
 
-function BiggestGames({ games }: { games: RankedGame[] }) {
+// One focusable row that opens and folds what follows it. A Field rather than an inline
+// ButtonItem, whose button runs past the panel's right edge.
+function FoldRow({ label, description, open, onToggle }: { label: string; description?: string; open: boolean; onToggle: () => void }) {
   return (
-    <PanelSection title={strings.biggestTitle}>
-      {games.length === 0 && (
+    <PanelSectionRow>
+      <Field label={label} description={description} focusable highlightOnFocus onActivate={onToggle}>
+        {open ? strings.hide : strings.show}
+      </Field>
+    </PanelSectionRow>
+  );
+}
+
+// A list section shown as one line until opened, so the D-pad can pass it in one step.
+function Collapsible({ title, summary, description, children }: { title: string; summary: string; description?: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <PanelSection title={title}>
+      <FoldRow label={summary} description={description} open={open} onToggle={() => setOpen(!open)} />
+      {open && children}
+    </PanelSection>
+  );
+}
+
+function BiggestGames({ games }: { games: RankedGame[] }) {
+  if (games.length === 0) {
+    return (
+      <PanelSection title={strings.biggestTitle}>
         <PanelSectionRow>
           <Field label={strings.noGames} />
         </PanelSectionRow>
-      )}
+      </PanelSection>
+    );
+  }
+  return (
+    <Collapsible title={strings.biggestTitle} summary={strings.biggestSummary(games[0].name, formatBytes(games[0].bytes))}>
       {games.map((game) => (
         <GameRow
           key={game.appid}
@@ -261,7 +288,7 @@ function BiggestGames({ games }: { games: RankedGame[] }) {
             .join(" · ")}
         />
       ))}
-    </PanelSection>
+    </Collapsible>
   );
 }
 
@@ -282,7 +309,7 @@ function NotPlayedGames({ found, months }: { found: NotPlayed; months: number })
   const shown = showAll ? found.games : found.games.slice(0, 10);
 
   return (
-    <PanelSection title={strings.notPlayedTitle(months)}>
+    <Collapsible title={strings.notPlayedTitle(months)} summary={strings.couldFree(found.games.length, formatBytes(found.bytes))}>
       <PanelSectionRow>
         <SliderField
           label={strings.months}
@@ -293,9 +320,6 @@ function NotPlayedGames({ found, months }: { found: NotPlayed; months: number })
           showValue
           onChange={(value) => changeSetting("stale_months", value)}
         />
-      </PanelSectionRow>
-      <PanelSectionRow>
-        <Field label={strings.couldFree(found.games.length, formatBytes(found.bytes))} />
       </PanelSectionRow>
       {shown.map((game) => (
         <GameRow
@@ -325,7 +349,7 @@ function NotPlayedGames({ found, months }: { found: NotPlayed; months: number })
       )}
       {showUnknown &&
         found.unknown.map((game) => <GameRow key={game.appid} game={game} description={strings.sources[game.source] ?? game.source} />)}
-    </PanelSection>
+    </Collapsible>
   );
 }
 
@@ -366,13 +390,11 @@ function ModsSection({ overview }: { overview: ModsOverview }) {
   const [showAll, setShowAll] = useState(false);
   const shown = showAll ? overview.games : overview.games.slice(0, 10);
   return (
-    <PanelSection title={strings.modsTitle}>
-      <PanelSectionRow>
-        <Field
-          label={overview.games.length ? strings.modsSummary(overview.games.length, formatBytes(overview.bytes)) : strings.modsNone}
-          description={strings.modsHowTo}
-        />
-      </PanelSectionRow>
+    <Collapsible
+      title={strings.modsTitle}
+      summary={overview.games.length ? strings.modsSummary(overview.games.length, formatBytes(overview.bytes)) : strings.modsNone}
+      description={strings.modsHowTo}
+    >
       {shown.map((game) => (
         <ModdedGame key={game.appid} game={game} />
       ))}
@@ -383,7 +405,7 @@ function ModsSection({ overview }: { overview: ModsOverview }) {
           </ButtonItem>
         </PanelSectionRow>
       )}
-    </PanelSection>
+    </Collapsible>
   );
 }
 
@@ -602,11 +624,12 @@ function GameOrNot({ entries }: { entries: Entry[] }) {
 
   return (
     <PanelSection>
-      <PanelSectionRow>
-        <ButtonItem layout="inline" label={strings.gameOrNot} description={open ? strings.gameOrNotDescription : undefined} onClick={() => setOpen(!open)}>
-          {open ? strings.hide : strings.show}
-        </ButtonItem>
-      </PanelSectionRow>
+      <FoldRow
+        label={strings.gameOrNot}
+        description={open ? strings.gameOrNotDescription : undefined}
+        open={open}
+        onToggle={() => setOpen(!open)}
+      />
       {open && review.map((entry) => <EntryToggle key={entry.appid} entry={entry} />)}
       {open && !showAll && rest.length > 0 && (
         <PanelSectionRow>
@@ -696,11 +719,7 @@ function Content() {
       )}
       {settings.enabled && settings.mods_overview && shown.mods && <ModsSection overview={shown.mods} />}
       <PanelSection>
-        <PanelSectionRow>
-          <ButtonItem layout="inline" label={strings.features} onClick={() => setFeaturesOpen(!featuresOpen)}>
-            {featuresOpen ? strings.hide : strings.show}
-          </ButtonItem>
-        </PanelSectionRow>
+        <FoldRow label={strings.features} open={featuresOpen} onToggle={() => setFeaturesOpen(!featuresOpen)} />
         {featuresOpen && (
           <>
             <FeatureToggle setting="size_label" label={strings.sizeLabel} description={strings.sizeLabelDescription} />
