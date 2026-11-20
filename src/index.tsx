@@ -17,7 +17,22 @@ import { useEffect, useState } from "react";
 import { patchGamePage } from "./gamePage";
 import { Settings, settingsStore, shownState, sortOverrideOn, Switch } from "./settings";
 import { collectionStoreOf, removePile, syncPile } from "./piles";
-import { createStore, Entry, formatBytes, ModsOverview, NotPlayed, Pile, PileKey, RankedGame, SizesState, store, totalBytes } from "./sizes";
+import {
+  createStore,
+  Entry,
+  formatBytes,
+  Leftover,
+  Leftovers,
+  ModsOverview,
+  NotPlayed,
+  Pile,
+  PileKey,
+  RankedGame,
+  RemoveResult,
+  SizesState,
+  store,
+  totalBytes,
+} from "./sizes";
 import { applySizes, appOverview, appTypes, clearSizes, lastPlayed, setSortOverrideEnabled } from "./sortOverride";
 import { KOFI_URL, strings } from "./strings";
 
@@ -41,6 +56,8 @@ const checkUpdatesNow = callable<[], UpdateInfo>("check_updates_now");
 const setAppTypes = callable<[types: Record<string, number>], boolean>("set_app_types");
 const setLastPlayed = callable<[times: Record<string, number>], boolean>("set_last_played");
 const setCountsAsGame = callable<[appid: string, counts: boolean], SizesState>("set_counts_as_game");
+const findLeftovers = callable<[], Leftovers>("find_leftovers");
+const removeShaderCaches = callable<[paths: string[]], RemoveResult>("remove_shader_caches");
 const setPileCollection = callable<[key: PileKey, id: string | null, name: string], unknown>("set_pile_collection");
 
 const REAPPLY_DELAY_MS = 1000;
@@ -455,6 +472,108 @@ function Piles({ piles, device, settings }: { piles: Record<PileKey, Pile>; devi
   );
 }
 
+function LeftoverRow({ leftover }: { leftover: Leftover }) {
+  const name = appOverview(Number(leftover.appid))?.display_name || strings.appName(leftover.appid);
+  return (
+    <PanelSectionRow>
+      <Field label={name} description={leftover.shown} focusable indentLevel={1}>
+        {formatBytes(leftover.bytes)}
+      </Field>
+    </PanelSectionRow>
+  );
+}
+
+// The one place Hoard removes anything: a dry run first, then exact paths to confirm.
+function CleanUp() {
+  const [found, setFound] = useState<Leftovers | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [result, setResult] = useState<RemoveResult | null>(null);
+  const [showPrefixes, setShowPrefixes] = useState(false);
+
+  const look = async () => {
+    setBusy(true);
+    setFound(await findLeftovers());
+    setBusy(false);
+  };
+  const remove = async (leftovers: Leftover[]) => {
+    setBusy(true);
+    setResult(await removeShaderCaches(leftovers.map((leftover) => leftover.path)));
+    setFound(await findLeftovers());
+    setBusy(false);
+  };
+  const confirm = (leftovers: Leftover[], bytes: number) =>
+    showModal(
+      <ConfirmModal
+        strTitle={strings.removeTitle}
+        strDescription={
+          <>
+            <div style={{ maxHeight: "40vh", overflowY: "auto", fontSize: "0.85em", wordBreak: "break-all" }}>
+              {leftovers.map((leftover) => (
+                <div key={leftover.path}>{`${leftover.shown} (${formatBytes(leftover.bytes)})`}</div>
+              ))}
+            </div>
+            <p>{strings.removeTotal(formatBytes(bytes))}</p>
+          </>
+        }
+        strOKButtonText={strings.remove}
+        onOK={() => remove(leftovers)}
+      />,
+    );
+
+  return (
+    <PanelSection title={strings.cleanupTitle}>
+      <PanelSectionRow>
+        <ButtonItem layout="below" description={strings.cleanupDescription} disabled={busy} onClick={look}>
+          {busy ? strings.finding : strings.findLeftovers}
+        </ButtonItem>
+      </PanelSectionRow>
+      {result && (
+        <PanelSectionRow>
+          <Field label={strings.removed(formatBytes(result.bytes), result.skipped.length)} />
+        </PanelSectionRow>
+      )}
+      {found && !found.ok && (
+        <PanelSectionRow>
+          <Field description={strings.libraryMissing(found.missing.join(", "))} />
+        </PanelSectionRow>
+      )}
+      {found?.ok && (
+        <>
+          <PanelSectionRow>
+            <Field
+              label={found.shader.length ? strings.shaderCaches(found.shader.length, formatBytes(found.shader_bytes)) : strings.noShaderCaches}
+              description={found.shader.length ? strings.shaderCachesDescription : undefined}
+            />
+          </PanelSectionRow>
+          {found.shader.slice(0, 10).map((leftover) => (
+            <LeftoverRow key={leftover.path} leftover={leftover} />
+          ))}
+          {found.shader.length > 0 && (
+            <PanelSectionRow>
+              <ButtonItem layout="below" disabled={busy} onClick={() => confirm(found.shader, found.shader_bytes)}>
+                {busy ? strings.removing : strings.removeShaderCaches(found.shader.length, formatBytes(found.shader_bytes))}
+              </ButtonItem>
+            </PanelSectionRow>
+          )}
+          {found.prefixes.length > 0 && (
+            <PanelSectionRow>
+              <ButtonItem
+                layout="below"
+                label={strings.prefixesFound(found.prefixes.length, formatBytes(found.prefix_bytes))}
+                description={strings.prefixesDescription}
+                onClick={() => setShowPrefixes(!showPrefixes)}
+              >
+                {showPrefixes ? strings.hide : strings.showGames(found.prefixes.length)}
+              </ButtonItem>
+            </PanelSectionRow>
+          )}
+          {showPrefixes && found.prefixes.map((leftover) => <LeftoverRow key={leftover.path} leftover={leftover} />)}
+        </>
+      )}
+    </PanelSection>
+  );
+}
+
 function EntryToggle({ entry }: { entry: Entry }) {
   const description = [strings.kinds[entry.kind], entry.guessed ? strings.guessed : null, entry.overridden ? strings.setByYou : null]
     .filter(Boolean)
@@ -590,10 +709,12 @@ function Content() {
             <FeatureToggle setting="biggest_games" label={strings.biggestGames} description={strings.biggestGamesDescription} />
             <FeatureToggle setting="not_played" label={strings.notPlayed} description={strings.notPlayedDescription} />
             <FeatureToggle setting="mods_overview" label={strings.modsOverview} description={strings.modsOverviewDescription} />
+            <FeatureToggle setting="cleanup" label={strings.cleanupFeature} description={strings.cleanupFeatureDescription} />
             <FeatureToggle setting="check_updates" label={strings.checkUpdates} description={strings.checkUpdatesDescription} />
           </>
         )}
       </PanelSection>
+      {settings.enabled && settings.cleanup && <CleanUp />}
       {settings.enabled && shown.piles && <Piles piles={shown.piles} device={shown.device ?? ""} settings={settings} />}
       {!settings.enabled && Object.values(state.piles ?? {}).some((pile) => pile.collection) && (
         <PanelSection>

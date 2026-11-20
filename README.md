@@ -63,6 +63,9 @@ Decky looks for the installed Hoard to replace by the zip's file name.
   **Over 50 GB** (the size is yours to set), **Not played in X months**, **Has mods** and
   **On disk**, which holds every installed game, family-shared and non-Steam ones included. Turn
   each one on by itself. See [Piles](#piles).
+- **Clean-up.** Finds leftovers of games that are no longer installed: shader caches, which
+  Hoard can remove, and Proton prefixes, which it only lists because they can hold saves. See
+  [Clean-up](#clean-up).
 - **Game or not.** A list in the panel of everything that isn't counted as a game, or that Hoard
   only guessed is one, each with a switch to count it or not. **Show more** lists the rest.
 - **Quick Access panel.** How many non-Steam games are sized, the shortcuts' total, the last scan time, and
@@ -119,6 +122,30 @@ be used like any other. How Hoard handles them:
   doesn't behave as Hoard expects, Piles pause for the session, log one line, and change
   nothing more.
 
+## Clean-up
+
+This is the only part of Hoard that removes anything, and it follows these rules:
+
+- **A dry run first.** **Find leftovers** lists what it found and changes nothing.
+- **Exact paths.** **Remove** shows every folder it will remove and the total, and waits for you
+  to confirm.
+- **Shader caches only.** A folder in a library's `steamapps/shadercache` is removed only when
+  its appid is installed in no library and used by no non-Steam shortcut on any Steam account on
+  the device. Steam rebuilds a shader cache if the game comes back.
+- **Proton prefixes are never removed.** Folders in `steamapps/compatdata` for apps that aren't
+  installed are listed with their size, because a prefix can hold saves and settings that Steam
+  Cloud doesn't keep. Leftover prefixes often come from non-Steam shortcuts that were made again,
+  which gives them a new id.
+- **Nothing while a library is missing.** If a library in `libraryfolders.vdf` isn't there, such
+  as an SD card that isn't inserted, Clean-up lists nothing, since its games would look
+  uninstalled.
+- **Checked again at removal.** Right before removing, Hoard looks again and keeps any folder
+  that no longer qualifies, for example for a game installed since the list was made. It never
+  follows a symlink.
+- **Logged.** Every removed folder is written, with its size and time, to
+  `~/homebrew/settings/Hoard/cleanup.log`.
+- **Game folders are never touched.** To remove a game, use Steam's own Uninstall.
+
 ## Where Hoard looks for mods
 
 | Game or manager | Where | Shown as |
@@ -160,6 +187,7 @@ switch it under **Game or not**, and open an issue with how the shortcut launche
 | Part | Files | Job |
 |---|---|---|
 | Update check | `updates.py` | Asks GitHub for the latest release's version and compares it with the installed one. Pure functions except the one request. |
+| Clean-up | `cleanup.py` | Finds leftover shader caches and Proton prefixes, and removes shader caches by the rules under Clean-up. The only code that deletes anything. |
 | Classifier | `classify.py` | Decides what each entry is, and builds the counts, the biggest games, the not-played list and the game-or-not list from that. Pure functions. |
 | Scanner | `scanner.py` | Reads `shortcuts.vdf`, Steam's library folders and app manifests, Mod Organizer, OpenMW and Heroic config, and measures folders. Pure functions, no Decky imports. |
 | Backend | `main.py` | Decky plugin class. Runs the scan watcher in a thread, caches results, stores settings, emits `sizes_updated`. |
@@ -225,7 +253,6 @@ version in `package.json`, publishes a release with the zip attached.
 Hoard is about storage: how big each game really is, what takes the space, and what can go.
 
 - Finish the Gaming Mode checks in `docs/TEST-MATRIX.md` on more themes and storage setups.
-- Clean-up of leftover shader caches for games that are no longer installed.
 - Submission to the Decky store.
 
 ## Support

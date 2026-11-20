@@ -84,6 +84,31 @@ export interface Pile {
   collection?: PileCollection | null;
 }
 
+// A folder clean-up found. Only shader caches can be removed; prefixes are only listed.
+export interface Leftover {
+  appid: string;
+  path: string;
+  shown: string;
+  bytes: number;
+}
+
+export interface Leftovers {
+  // False while a Steam library is missing: then nothing is listed or removed.
+  ok: boolean;
+  missing: string[];
+  shader: Leftover[];
+  prefixes: Leftover[];
+  shader_bytes: number;
+  prefix_bytes: number;
+}
+
+export interface RemoveResult {
+  removed: string[];
+  bytes: number;
+  skipped: string[];
+  missing: string[];
+}
+
 export interface Counts {
   shortcut_games: number;
   sized_shortcut_games: number;
@@ -114,6 +139,7 @@ export interface OverviewLike {
   app_type: number;
   size_on_disk?: number | string;
   rt_last_time_played?: number;
+  display_name?: string;
 }
 
 export const EMPTY_STATE: SizesState = { sizes: {}, unsized: {}, steam: {}, scanned_at: 0, scanning: false };

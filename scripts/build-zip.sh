@@ -15,7 +15,7 @@ pnpm build
 rm -rf "$stage" "$out"
 mkdir -p "$stage/Hoard/dist"
 cp dist/index.js "$stage/Hoard/dist/"
-cp main.py scanner.py classify.py updates.py plugin.json package.json LICENSE "$stage/Hoard/"
+cp main.py scanner.py classify.py cleanup.py updates.py plugin.json package.json LICENSE "$stage/Hoard/"
 (cd "$stage" && zip -qrX "../${out#build/}" Hoard)
 
 echo "$out"

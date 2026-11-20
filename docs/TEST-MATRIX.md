@@ -128,3 +128,17 @@ Steam syncs collections to the account, so note your own collections before thes
       visible and focused on its game page.
 - [ ] D-pad: every pile switch, the slider and the device name are reachable, and **Support on
       Ko-fi** is still last. The confirm dialog works with A and B.
+
+## Clean-up
+
+- [ ] **Find leftovers** lists shader caches and Proton prefixes and removes nothing (compare
+      `du -sh ~/.local/share/Steam/steamapps/shadercache` before and after).
+- [ ] No shader cache of an installed game or of a current non-Steam shortcut is in the list.
+- [ ] **Remove** opens a dialog with every path and the total. B cancels and nothing changes.
+- [ ] A removes them: the panel says how much was freed, the folders are gone, and
+      `~/homebrew/settings/Hoard/cleanup.log` has one line per folder.
+- [ ] Proton prefixes have no remove button, only a list.
+- [ ] With an SD card library and the card out: **Find leftovers** says the library is missing
+      and lists nothing.
+- [ ] Launch a game whose shader cache was removed: it starts, and Steam builds the cache again.
+- [ ] D-pad: every row is reachable and **Support on Ko-fi** is still last.

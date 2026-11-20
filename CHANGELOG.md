@@ -30,6 +30,9 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - **Piles**, off by default: Steam collections that Hoard keeps up to date, for games over a
   size you set, games not played for a while, games with mods, and every game on disk. Each is
   named for the device, changed only by the id Hoard stored, and removed only after you confirm.
+- **Clean-up**: leftover shader caches of games no longer installed, found in a dry run and
+  removed only after you confirm the exact folders, with a log. Leftover Proton prefixes are
+  listed but never removed, since they can hold saves. Nothing happens while a library is missing.
 - A mod location issue template, and a README table of every place Hoard looks for mods.
 - Automatic scans skip Steam games without mods that haven't changed since they were last
   measured, for up to a week. **Rescan now** still measures everything.

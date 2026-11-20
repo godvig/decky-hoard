@@ -9,6 +9,7 @@ import decky
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import classify
+import cleanup
 import scanner
 import updates
 
@@ -17,6 +18,8 @@ SETTINGS_NAME = "settings.json"
 UPDATES_NAME = "updates.json"
 APP_TYPES_NAME = "app_types.json"
 LAST_PLAYED_NAME = "last_played.json"
+# Every folder clean-up removes, with its size and time.
+CLEANUP_LOG_NAME = "cleanup.log"
 STALE_MONTHS_RANGE = (1, 36)
 BIG_GIB_RANGE = (10, 1000)
 DMI_PRODUCT = "/sys/devices/virtual/dmi/id/product_name"
@@ -27,6 +30,7 @@ DEFAULT_SETTINGS = {"enabled": True, "sort_override": True, "size_label": True, 
                     "biggest_games": True,
                     "not_played": True,
                     "mods_overview": True,
+                    "cleanup": True,
                     # How long a game must go unplayed to show under "Not played".
                     "stale_months": 6,
                     # Piles: Steam collections Hoard makes, each off until turned on.
@@ -242,6 +246,22 @@ class Plugin:
         except OSError:
             product = ""
         return classify.device_name(self._load_settings()["device_name"], product, os.uname().nodename)
+
+    async def find_leftovers(self):
+        """A dry run: leftover shader caches and Proton prefixes, nothing removed."""
+        return await asyncio.to_thread(cleanup.find, decky.DECKY_USER_HOME)
+
+    async def remove_shader_caches(self, paths):
+        """Remove the shader caches the user confirmed, as far as the rules still allow."""
+        settings = self._load_settings()
+        if not (settings["enabled"] and settings["cleanup"]) or not isinstance(paths, list):
+            return {"removed": [], "bytes": 0, "skipped": [], "missing": []}
+        log = os.path.join(decky.DECKY_PLUGIN_SETTINGS_DIR, CLEANUP_LOG_NAME)
+        result = await asyncio.to_thread(cleanup.remove_shader_caches, decky.DECKY_USER_HOME,
+                                         [path for path in paths if isinstance(path, str)], log)
+        decky.logger.info("clean-up removed %d shader caches, %d bytes, skipped %d",
+                          len(result["removed"]), result["bytes"], len(result["skipped"]))
+        return result
 
     async def set_pile_collection(self, key, collection_id, name):
         """Remember the collection Steam made for a pile, or forget it with an id of None."""

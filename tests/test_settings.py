@@ -33,7 +33,7 @@ def plugin(tmp_path, monkeypatch, emitted):
 
 
 DEFAULTS = {"enabled": True, "sort_override": True, "size_label": True, "scan_shortcuts": True,
-            "check_updates": False, "biggest_games": True, "not_played": True, "mods_overview": True, "stale_months": 6,
+            "check_updates": False, "biggest_games": True, "not_played": True, "mods_overview": True, "cleanup": True, "stale_months": 6,
             "pile_big": False, "pile_stale": False, "pile_modded": False, "pile_on_disk": False,
             "pile_big_gib": 50, "device_name": "", "pile_collections": {}, "kind_overrides": {}}
 
@@ -299,3 +299,20 @@ def test_pile_collections_are_remembered_and_forgotten_by_id(plugin):
     assert asyncio.run(plugin.set_pile_collection("not-a-pile", "uc-def", "x")) == {
         "big": {"id": "uc-abc", "name": "Over 50 GB · X (Hoard)"}}
     assert asyncio.run(plugin.set_pile_collection("big", None, "")) == {}
+
+
+def test_clean_up_does_nothing_while_hoard_or_clean_up_is_off(plugin, tmp_path):
+    steam = tmp_path / ".local/share/Steam/steamapps"
+    (steam / "shadercache/77").mkdir(parents=True)
+    (steam / "libraryfolders.vdf").write_text('"libraryfolders"\n{\n}\n')
+    path = str(steam / "shadercache/77")
+    found = asyncio.run(plugin.find_leftovers())
+    assert [entry["path"] for entry in found["shader"]] == [path]
+    for key in ("cleanup", "enabled"):
+        asyncio.run(plugin.set_setting(key, False))
+        assert asyncio.run(plugin.remove_shader_caches([path]))["removed"] == []
+        assert os.path.isdir(path)
+        asyncio.run(plugin.set_setting(key, True))
+    result = asyncio.run(plugin.remove_shader_caches([path]))
+    assert result["removed"] == ["~/.local/share/Steam/steamapps/shadercache/77"]
+    assert (tmp_path / "cleanup.log").read_text().count("removed") == 1

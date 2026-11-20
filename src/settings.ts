@@ -15,6 +15,7 @@ export interface Settings {
   biggest_games: boolean;
   not_played: boolean;
   mods_overview: boolean;
+  cleanup: boolean;
   pile_big: boolean;
   pile_stale: boolean;
   pile_modded: boolean;
@@ -38,6 +39,7 @@ export const DEFAULT_SETTINGS: Settings = {
   biggest_games: true,
   not_played: true,
   mods_overview: true,
+  cleanup: true,
   pile_big: false,
   pile_stale: false,
   pile_modded: false,
