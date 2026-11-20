@@ -115,7 +115,8 @@ Steam syncs collections to the account, so note your own collections before thes
 
 - [ ] All four piles are off after updating, and the Collections tab is unchanged.
 - [ ] Turn **On disk** on: after a few seconds `On disk · <device> (Hoard)` appears in the
-      Collections tab with the installed games, non-Steam ones included.
+      Collections tab with the installed games, non-Steam ones included. It gets no tab of its
+      own, as the panel says.
 - [ ] Turn **Over 50 GB** on, then move the slider from 50 to 100 and stop: after a few seconds
       there is one `Over 100 GB` collection and no `Over 50 GB` one left behind.
 - [ ] Set **Device name** to something else and leave the field: every pile's name follows,

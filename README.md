@@ -101,8 +101,11 @@ picks it up at once.
 
 ## Piles
 
-A pile is an ordinary Steam collection, so it shows up in the library's Collections tab and can
-be used like any other. How Hoard handles them:
+A pile is an ordinary Steam collection, so it shows up in the library's **Collections** tab (on
+the desktop, in the library's left column) and can be used like any other. Steam doesn't give a
+collection a tab of its own: for a pile as a tab next to Installed and Non-Steam, use a tab plugin
+such as TabMaster and add a tab that shows that collection. Hoard itself never adds, hides or
+reorders tabs. How Hoard handles them:
 
 - **Only its own.** Hoard stores the id Steam gives each collection it makes, and only ever
   changes or removes a collection by that id. It never looks collections up by name, never

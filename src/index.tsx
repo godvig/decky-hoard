@@ -472,6 +472,9 @@ function Piles({ piles, device, settings }: { piles: Record<PileKey, Pile>; devi
       <PanelSectionRow>
         <Field description={broken ? strings.pilesBroken : strings.pilesDescription(device)} bottomSeparator="none" />
       </PanelSectionRow>
+      <PanelSectionRow>
+        <Field description={strings.pilesWhere} bottomSeparator="none" />
+      </PanelSectionRow>
       {(Object.entries(piles) as [PileKey, Pile][]).map(([key, pile]) => (
         <PileToggle key={key} pileKey={key} pile={pile} disabled={broken} />
       ))}

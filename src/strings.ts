@@ -64,6 +64,8 @@ export const strings = {
   pilesTitle: "Piles",
   pilesDescription: (device: string) =>
     `Steam collections Hoard keeps up to date, named for ${device}. Hoard only changes the ones it made.`,
+  pilesWhere:
+    "Find them in your library's Collections tab. Steam doesn't give a collection a tab of its own; a tab plugin such as TabMaster can.",
   pileGames: (count: number) => `${count} ${count === 1 ? "game" : "games"}`,
   pileThreshold: "Size for the Over pile",
   deviceName: "Device name",
