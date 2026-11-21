@@ -1,5 +1,7 @@
 # Hoard
 
+<p align="center"><img src="assets/store.png" alt="Hoard logo: a dragon resting on a stack of drives" width="200"></p>
+
 A [Decky Loader](https://github.com/SteamDeckHomebrew/decky-loader) plugin that shows how much
 disk space each game really uses, mods included, for Steam and non-Steam games alike.
 
@@ -7,9 +9,6 @@ Steam only knows the size of what it downloaded itself. A non-Steam shortcut sho
 all, and a Steam game with Workshop items, a Mod Organizer setup or loose mod files shows only
 its base install. Hoard measures those folders and puts the result where you already look: the
 game page, and Steam's own sort by size on disk.
-
-<!-- GIF: the game page with "Size on disk" in the stats row, then the Quick Access panel. -->
-*A demo GIF goes here.*
 
 ## Install
 
